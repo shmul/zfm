@@ -1,4 +1,5 @@
-import actions
+import actions.play
+#import actions.crop
 import click
 
 
@@ -36,9 +37,20 @@ def crop(start, end, head, tail, filename):
 
 
 @zfm.command()
-def export():
-    '''Export files'''
-    click.echo('zfm cmd2')
+@click.option('--head',
+              '-h',
+              default=0,
+              help='head position (in secs)',
+              show_default=True)
+@click.option('--tail',
+              '-t',
+              default=0,
+              help='tail position (in secs from end of the track)',
+              show_default=True)
+@click.argument('files', nargs=-1)
+def play(head, tail, files):
+    '''Play files'''
+    actions.play.playall(head, tailfiles)
 
 
 zfm.add_command(crop)
