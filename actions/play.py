@@ -12,7 +12,7 @@ def playall(head: int, tail: int, files: str):
             continue
 
         if head > 0:
-            pydub.playback.play(audio[:head])
+            pydub.playback.play(audio[:head * 1000])
 
         if tail > 0:
-            pydub.playback.play(audio[ln - tail:])
+            pydub.playback.play(audio[ln - tail * 1000:])

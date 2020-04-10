@@ -22,11 +22,13 @@ def zfm():
 @click.option('--head',
               '-h',
               default=0,
+              type=float,
               help='head position (in secs)',
               show_default=True)
 @click.option('--tail',
               '-t',
               default=0,
+              type=float,
               help='tail position (in secs from end of the track)',
               show_default=True)
 @click.argument('filename', type=click.Path(exists=True))
@@ -40,17 +42,19 @@ def crop(start, end, head, tail, filename):
 @click.option('--head',
               '-h',
               default=0,
+              type=float,
               help='head position (in secs)',
               show_default=True)
 @click.option('--tail',
               '-t',
               default=0,
+              type=float,
               help='tail position (in secs from end of the track)',
               show_default=True)
 @click.argument('files', nargs=-1)
 def play(head, tail, files):
     '''Play files'''
-    actions.play.playall(head, tailfiles)
+    actions.play.playall(head, tail, files)
 
 
 zfm.add_command(crop)

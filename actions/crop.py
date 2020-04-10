@@ -21,7 +21,7 @@ def hhmmss(tstr: str) -> int:
     return t.timestamp()
 
 
-def offset(hms: string, sec: int) -> Msecs:
+def offset(hms: string, sec: float) -> Msecs:
     s = hhmmss(hms)
     if s != 0:
         return Msecs(s * 1000)
@@ -31,7 +31,7 @@ def offset(hms: string, sec: int) -> Msecs:
 
 
 # start/end are of the format [hh:]mm:ss; head/tail are secs
-def crop(file: str, start: str, end: string, head: int, tail: int):
+def crop(file: str, start: str, end: string, head: float, tail: float):
     cropped = pydub.AudioSegment.from_file(pathlib.Path(file))
     ln = len(cropped)
     if tail == 0:
