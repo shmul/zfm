@@ -31,16 +31,29 @@ def zfm():
               type=float,
               help='tail position (in secs from end of the track)',
               show_default=True)
+@click.option('--fade-in',
+              '-i',
+              default=0,
+              type=float,
+              help='fade in duration (in secs)',
+              show_default=True)
+@click.option('--fade-out',
+              '-o',
+              default=0,
+              type=float,
+              help='fade in duration (in secs)',
+              show_default=True)
 @click.option('--play/--no-play',
               '-p',
               default=False,
               help='play instead of save',
               show_default=True)
 @click.argument('filename', type=click.Path(exists=True))
-def crop(start, end, head, tail, play, filename):
+def crop(start, end, head, tail, fade_in, fade_out, play, filename):
     '''Crop file'''
     click.echo('zfm crop')
-    actions.crop.crop(filename, start, end, head, tail, play)
+    actions.crop.crop(filename, start, end, head, tail, fade_in, fade_out,
+                      play)
 
 
 @zfm.command()
