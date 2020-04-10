@@ -4,3 +4,4 @@ click==7.1.1
 py==1.4.34
 pytest==3.2.3
 pydub==0.23.1
+pytimeparse==1.1.8

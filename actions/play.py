@@ -3,7 +3,7 @@ import pydub.playback
 import pathlib
 
 
-def playall(head: int, tail: int, files: str):
+def playall(head: float, tail: float, files: str):
     for f in files:
         audio = pydub.AudioSegment.from_file(pathlib.Path(f))
         ln = len(audio)

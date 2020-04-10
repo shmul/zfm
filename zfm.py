@@ -1,5 +1,5 @@
 import actions.play
-#import actions.crop
+import actions.crop
 import click
 
 
@@ -31,11 +31,16 @@ def zfm():
               type=float,
               help='tail position (in secs from end of the track)',
               show_default=True)
+@click.option('--play/--no-play',
+              '-p',
+              default=False,
+              help='play instead of save',
+              show_default=True)
 @click.argument('filename', type=click.Path(exists=True))
-def crop(start, end, head, tail, filename):
+def crop(start, end, head, tail, play, filename):
     '''Crop file'''
     click.echo('zfm crop')
-    actions.crop(start, end, head, tail, filename)
+    actions.crop.crop(filename, start, end, head, tail, play)
 
 
 @zfm.command()

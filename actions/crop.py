@@ -1,45 +1,38 @@
 import pydub
+import pydub.playback
 import typing
-import datetime
+import pytimeparse
 import pathlib
 import csv
 
 Msecs = typing.NewType('Msecs', int)
-AudioFiles = typing.NewType('AudioFiles', List[string])
+AudioFiles = typing.NewType('AudioFiles', typing.List[str])
 
 
-def hhmmss(tstr: str) -> int:
-    if not tstr:
-        return 0
-
-    t = datetime.strptime(tstr, '%H:%M:%S')
-    if not t:
-        t = datetime.strptime(tstr, '%M:%S')
-    if not t:
-        return 0
-
-    return t.timestamp()
-
-
-def offset(hms: string, sec: float) -> Msecs:
-    s = hhmmss(hms)
-    if s != 0:
+def offset(hms: str, sec: float) -> Msecs:
+    s = None
+    if hms:
+        s = pytimeparse.parse(hms)
+    if s != None:
         return Msecs(s * 1000)
-    if ln == 0:
-        return Msecs(sec * 1000)
     return Msecs(sec * 1000)
 
 
 # start/end are of the format [hh:]mm:ss; head/tail are secs
-def crop(file: str, start: str, end: string, head: float, tail: float):
+def crop(file: str, start: str, end: str, head: float, tail: float,
+         play: bool):
     cropped = pydub.AudioSegment.from_file(pathlib.Path(file))
     ln = len(cropped)
     if tail == 0:
-        tail = ln
+        tail = ln / 1000
     s = offset(start, head)
     e = offset(end, tail)
-
-    return cropped[s:e]
+    print("file {}, len: {}, start: {}, end: {}".format(file, ln, s, e))
+    segment = cropped[s:e]
+    if play:
+        pydub.playback.play(segment)
+    else:
+        pass  # todo - save the file
 
 
 def crop_many(csvfile: str) -> AudioFiles:
