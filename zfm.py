@@ -56,10 +56,22 @@ def crop(start, end, head, tail, play, filename):
               type=float,
               help='tail position (in secs from end of the track)',
               show_default=True)
+@click.option('--fade-in',
+              '-i',
+              default=0,
+              type=float,
+              help='fade in duration (in secs)',
+              show_default=True)
+@click.option('--fade-out',
+              '-o',
+              default=0,
+              type=float,
+              help='fade in duration (in secs)',
+              show_default=True)
 @click.argument('files', nargs=-1)
-def play(head, tail, files):
+def play(head, tail, fade_in, fade_out, files):
     '''Play files'''
-    actions.play.playall(head, tail, files)
+    actions.play.playall(head, tail, fade_in, fade_out, files)
 
 
 zfm.add_command(crop)
