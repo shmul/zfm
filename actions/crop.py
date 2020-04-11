@@ -61,10 +61,12 @@ def round_to_sec(td: timedelta) -> timedelta:
 #file,start,end,head,tail,fade_in,fade_out,
 def crop_many(csvfile: str,
               target_dir: str,
+              preview: float,
               dry_run: bool = False) -> AudioFiles:
     tracks = []
     cropped = cropped_dir(csvfile, target_dir)
     overalltime = 0
+    preview = preview * 1000
     with open(csvfile, newline='') as file:
         for row in csv.DictReader(file):
             row['target_dir'] = cropped
@@ -90,14 +92,20 @@ def crop_many(csvfile: str,
             overalltime += s
 
     playlist = pydub.AudioSegment.empty()
+    previews = pydub.AudioSegment.empty()
     with open(os.path.join(cropped, "tracklist.txt"), 'w') as tracklist:
         for track in tracks:
             playlist += track['audio']
             if not dry_run:
                 tracklist.write('{artist} - {title}\n'.format(**track))
+            if preview != 0:
+                previews += track['audio'][:preview]
+                previews += track['audio'][-preview:]
 
     target = os.path.join(cropped, "playlist.mp3")
     print(target)
     print("overall time", str(round_to_sec(timedelta(seconds=overalltime))))
     if not dry_run:
         playlist.export(target)
+    if len(previews) > 0:
+        pydub.playback.play(previews)
