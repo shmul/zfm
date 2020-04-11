@@ -14,6 +14,9 @@ def offset(hms: str, sec: float) -> Msecs:
         s = pytimeparse.parse(hms)
     if s != None:
         return Msecs(s * 1000)
+    if sec == None:
+        return Msecs(0)
+
     return Msecs(sec * 1000)
 
 
@@ -23,19 +26,20 @@ def prepare(file: str = '',
             head: float = 0,
             tail: float = 0,
             fade_in: float = 0,
-            fade_out: float = 0) -> pydub.AudioSegment:
+            fade_out: float = 0) -> (pydub.AudioSegment, bool):
     file = os.path.realpath(file)
     audio = pydub.AudioSegment.from_file(pathlib.Path(file))
     ln = len(audio)
-    if tail == 0:
+    if not tail:
         tail = ln / 1000
-        s = offset(start, head)
-        e = offset(end, tail)
-        print("file {}, len: {}, start: {}, end: {}".format(file, ln, s, e))
-        audio = audio[s:e]
+
+    s = offset(start, head)
+    e = offset(end, tail)
+    #print("file {}, len: {}, start: {}, end: {}".format(file, ln, s, e))
+    audio = audio[s:e]
     if fade_in:
         audio = audio.fade_in(int(fade_in * 1000))
     if fade_out:
         audio = audio.fade_out(int(fade_out * 1000))
 
-    return audio
+    return audio, len(audio) == ln

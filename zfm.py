@@ -48,12 +48,32 @@ def zfm():
               default=False,
               help='play instead of save',
               show_default=True)
+@click.option('--target-dir',
+              default='',
+              help='target dir for cropped files',
+              show_default=False)
 @click.argument('filename', type=click.Path(exists=True))
 def crop(start, end, head, tail, fade_in, fade_out, play, filename):
     '''Crop file'''
     click.echo('zfm crop')
     actions.crop.crop(filename, start, end, head, tail, fade_in, fade_out,
                       play)
+
+
+@zfm.command()
+@click.option('--target-dir',
+              default='',
+              help='target dir for cropped files',
+              show_default=False)
+@click.option('--dry-run/--no-dry-run',
+              '-n',
+              default=False,
+              help='just prepare but don\'t write',
+              show_default=True)
+@click.argument('filename', type=click.Path(exists=True))
+def csv(filename, target_dir, dry_run):
+    '''Prepare form csv'''
+    actions.crop.crop_many(filename, target_dir, dry_run)
 
 
 @zfm.command()
