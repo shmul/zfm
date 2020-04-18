@@ -8,16 +8,20 @@ Msecs = typing.NewType('Msecs', int)
 AudioFiles = typing.NewType('AudioFiles', typing.List[str])
 
 
+def tomsecs(v: float) -> Msecs:
+    return Msecs(int(1000 * float(v)))
+
+
 def offset(hms: str, sec: float) -> Msecs:
     s = None
     if hms:
         s = pytimeparse.parse(hms)
     if s != None:
-        return Msecs(s * 1000)
-    if sec == None:
-        return Msecs(0)
+        return tomsecs(s)
+    if not sec:
+        return tomsecs(0)
 
-    return Msecs(sec * 1000)
+    return tomsecs(sec)
 
 
 def prepare(file: str = '',
@@ -38,8 +42,8 @@ def prepare(file: str = '',
     #print("file {}, len: {}, start: {}, end: {}".format(file, ln, s, e))
     audio = audio[s:e]
     if fade_in:
-        audio = audio.fade_in(int(fade_in * 1000))
+        audio = audio.fade_in(tomsecs(fade_in))
     if fade_out:
-        audio = audio.fade_out(int(fade_out * 1000))
+        audio = audio.fade_out(tomsecs(fade_out))
 
     return audio, len(audio) == ln

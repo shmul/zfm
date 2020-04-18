@@ -18,3 +18,8 @@ To run the tests:
 ```
     $ pytest
 ```
+
+## TODO
+- [ ] read m3u to csvfile
+- [ ] export to m3u
+- [ ] detect low volume at the ends

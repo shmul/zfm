@@ -6,6 +6,7 @@ import csv
 import os
 from actions.prepare import prepare
 from datetime import timedelta
+import urllib.parse
 
 AudioFiles = typing.NewType('AudioFiles', typing.List[str])
 
@@ -70,6 +71,8 @@ def crop_many(csvfile: str,
     with open(csvfile, newline='') as file:
         for row in csv.DictReader(file):
             row['target_dir'] = cropped
+            row['file'] = urllib.parse.unquote(
+                urllib.parse.urlparse(row['file']).path)
             audio = crop(**row, dry_run=True)
             tags = pydub.utils.mediainfo(row['file'])['TAG']
             artist = tags.get('ARTIST') or tags.get('artist')
@@ -87,25 +90,28 @@ def crop_many(csvfile: str,
                 "len": str(round_to_sec(ln)),
             }
             tracks.append(track)
-            print('{artist} - {title} [{len}] (start: {acc})'.format(
+            print('({acc}) [{len}] {artist} - {title}'.format(
                 **track, acc=round_to_sec(timedelta(seconds=overalltime))))
             overalltime += s
 
     playlist = pydub.AudioSegment.empty()
-    previews = pydub.AudioSegment.empty()
+
     with open(os.path.join(cropped, "tracklist.txt"), 'w') as tracklist:
         for track in tracks:
             playlist += track['audio']
-            if not dry_run:
-                tracklist.write('{artist} - {title}\n'.format(**track))
-            if preview != 0:
-                previews += track['audio'][:preview]
-                previews += track['audio'][-preview:]
+            tracklist.write('{artist} - {title}\n'.format(**track))
 
-    target = os.path.join(cropped, "playlist.mp3")
-    print(target)
     print("overall time", str(round_to_sec(timedelta(seconds=overalltime))))
+
     if not dry_run:
+        target = os.path.join(cropped, "playlist.mp3")
+        print(target)
         playlist.export(target)
-    if len(previews) > 0:
-        pydub.playback.play(previews)
+
+    if preview != 0:
+        for track in tracks:
+            audio = track['audio']
+            print('==== [{len}] {artist} - {title}'.format(
+                **track, acc=round_to_sec(timedelta(seconds=overalltime))))
+            pydub.playback.play(audio[:preview])
+            pydub.playback.play(audio[-preview:])
