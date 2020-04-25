@@ -20,6 +20,6 @@ To run the tests:
 ```
 
 ## TODO
-- [ ] read m3u to csvfile
+- [x] read m3u to csvfile
 - [ ] export to m3u
 - [ ] detect low volume at the ends
