@@ -20,7 +20,7 @@ csv_field_names = [
 def at_targe_dir(file: str, target_dir: str) -> str:
     dir = target_dir
     if not dir:
-        dir = os.path.join(os.path.dirname(file), "cropped")
+        dir = os.path.dirname(file)
 
     os.makedirs(dir, exist_ok=True)
     return dir

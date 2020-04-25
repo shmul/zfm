@@ -6,10 +6,10 @@ from actions.prepare import prepare
 def playall(head: float, tail: float, fade_in: float, fade_out: float,
             files: str):
     for f in files:
-        audio = prepare(file=f,
-                        head=head,
-                        tail=tail,
-                        fade_in=fade_in,
-                        fade_out=fade_out)
+        audio, ln = prepare(file=f,
+                            head=head,
+                            tail=tail,
+                            fade_in=fade_in,
+                            fade_out=fade_out)
 
         pydub.playback.play(audio)
