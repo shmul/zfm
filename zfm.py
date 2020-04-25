@@ -78,8 +78,19 @@ def crop(start, end, head, tail, fade_in, fade_out, play, filename):
               show_default=True)
 @click.argument('filename', type=click.Path(exists=True))
 def csv(filename, target_dir, preview, dry_run):
-    '''Prepare form csv'''
+    '''Prepare from csv'''
     actions.crop.crop_many(filename, target_dir, preview, dry_run)
+
+
+@zfm.command()
+@click.option('--target-dir',
+              default='',
+              help='target dir for csv file',
+              show_default=False)
+@click.argument('filename', type=click.Path(exists=True))
+def m3u(filename, target_dir):
+    '''m3u to csv'''
+    actions.crop.to_csv(filename, target_dir)
 
 
 @zfm.command()
@@ -112,8 +123,6 @@ def play(head, tail, fade_in, fade_out, files):
     '''Play files'''
     actions.play.playall(head, tail, fade_in, fade_out, files)
 
-
-zfm.add_command(crop)
 
 if __name__ == '__main__':
     zfm()

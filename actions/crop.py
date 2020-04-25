@@ -5,13 +5,19 @@ import typing
 import csv
 import os
 from actions.prepare import prepare
+from actions.m3uparser import parsem3u
+
 from datetime import timedelta
 import urllib.parse
 
 AudioFiles = typing.NewType('AudioFiles', typing.List[str])
 
+csv_field_names = [
+    'file', 'start', 'end', 'head', 'tail', 'fade_in', 'fade_out'
+]
 
-def cropped_dir(file: str, target_dir: str) -> str:
+
+def at_targe_dir(file: str, target_dir: str) -> str:
     dir = target_dir
     if not dir:
         dir = os.path.join(os.path.dirname(file), "cropped")
@@ -42,11 +48,11 @@ def crop(file: str,
         pydub.playback.play(segment)
         return
 
-    cropped = cropped_dir(file, target_dir)
+    cropped = at_targe_dir(file, target_dir)
     target = os.path.join(cropped, os.path.basename(file))
-    if os.path.exists(target):
-        os.remove(target)
     if not dry_run:
+        if os.path.exists(target):
+            os.remove(target)
         if identical:
             os.symlink(file, target)
         else:
@@ -59,13 +65,33 @@ def round_to_sec(td: timedelta) -> timedelta:
     return timedelta(seconds=round(td.seconds, 0))
 
 
+def to_csv(m3ufile: str, target_dir: str):
+    # if not m3ufile.endswith("m3u"):
+    #     print("incompatible file")
+    #     return
+    basename = os.path.splitext(os.path.basename(m3ufile))[0]
+    csvfile = os.path.join(at_targe_dir(m3ufile, target_dir),
+                           basename + '.csv')
+
+    playlist = parsem3u(m3ufile)
+
+    f = open(csvfile, 'w')
+    print("creating ", csvfile)
+
+    with f:
+        writer = csv.DictWriter(f, fieldnames=csv_field_names)
+        writer.writeheader()
+        for track in playlist:
+            writer.writerow({'file': track.path})
+
+
 #file,start,end,head,tail,fade_in,fade_out,
 def crop_many(csvfile: str,
               target_dir: str,
               preview: float,
               dry_run: bool = False) -> AudioFiles:
     tracks = []
-    cropped = cropped_dir(csvfile, target_dir)
+    cropped = at_targe_dir(csvfile, target_dir)
     overalltime = 0
     preview = preview * 1000
     with open(csvfile, newline='') as file:
@@ -74,9 +100,17 @@ def crop_many(csvfile: str,
             row['file'] = urllib.parse.unquote(
                 urllib.parse.urlparse(row['file']).path)
             audio = crop(**row, dry_run=True)
-            tags = pydub.utils.mediainfo(row['file'])['TAG']
-            artist = tags.get('ARTIST') or tags.get('artist')
-            title = tags.get('TITLE') or tags.get('title')
+            mi = pydub.utils.mediainfo(row['file'])
+            tags = mi.get('TAG')
+            if tags != None:
+                artist = tags.get('ARTIST') or tags.get('artist')
+                title = tags.get('TITLE') or tags.get('title')
+                skip = False
+            else:
+                artist = row['file']
+                title = ''
+                skip = True
+
             s = 0
             if audio:
                 s = len(audio) / 1000
@@ -87,6 +121,7 @@ def crop_many(csvfile: str,
                 "audio": audio,
                 "artist": artist,
                 "title": title,
+                "skip": skip,
                 "len": str(round_to_sec(ln)),
             }
             tracks.append(track)
@@ -99,6 +134,8 @@ def crop_many(csvfile: str,
     with open(os.path.join(cropped, "tracklist.txt"), 'w') as tracklist:
         for track in tracks:
             playlist += track['audio']
+            if track.get('skip'):
+                continue
             tracklist.write('{artist} - {title}\n'.format(**track))
 
     print("overall time", str(round_to_sec(timedelta(seconds=overalltime))))
@@ -111,6 +148,9 @@ def crop_many(csvfile: str,
     if preview != 0:
         for track in tracks:
             audio = track['audio']
+            if track.get('skip'):
+                continue
+
             print('==== [{len}] {artist} - {title}'.format(
                 **track, acc=round_to_sec(timedelta(seconds=overalltime))))
             pydub.playback.play(audio[:preview])
