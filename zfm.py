@@ -71,15 +71,21 @@ def crop(start, end, head, tail, fade_in, fade_out, play, filename):
               type=float,
               help='play preview (secs) of head and end',
               show_default=True)
+@click.option('--just',
+              '-j',
+              default=-1,
+              type=int,
+              help='play just that audio (zero based indexing)',
+              show_default=True)
 @click.option('--dry-run/--no-dry-run',
               '-n',
               default=False,
               help='just prepare but don\'t write',
               show_default=True)
 @click.argument('filename', type=click.Path(exists=True))
-def csv(filename, target_dir, preview, dry_run):
+def csv(filename, target_dir, preview, just, dry_run):
     '''Prepare from csv'''
-    actions.crop.crop_many(filename, target_dir, preview, dry_run)
+    actions.crop.crop_many(filename, target_dir, preview, just, dry_run)
 
 
 @zfm.command()

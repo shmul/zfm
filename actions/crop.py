@@ -89,13 +89,18 @@ def to_csv(m3ufile: str, target_dir: str):
 def crop_many(csvfile: str,
               target_dir: str,
               preview: float,
+              just: int,
               dry_run: bool = False) -> AudioFiles:
     tracks = []
     cropped = at_targe_dir(csvfile, target_dir)
     overalltime = 0
     preview = preview * 1000
+
     with open(csvfile, newline='') as file:
-        for row in csv.DictReader(file):
+        for idx, row in enumerate(csv.DictReader(file)):
+            if just >= 0 and idx != just:
+                continue
+
             row['target_dir'] = cropped
             row['file'] = urllib.parse.unquote(
                 urllib.parse.urlparse(row['file']).path)
@@ -118,6 +123,7 @@ def crop_many(csvfile: str,
             ln = round_to_sec(timedelta(seconds=s))
 
             track = {
+                "idx": str(idx).zfill(2),
                 "audio": audio,
                 "artist": artist,
                 "title": title,
@@ -143,15 +149,17 @@ def crop_many(csvfile: str,
     if not dry_run:
         target = os.path.join(cropped, "playlist.mp3")
         print(target)
-        playlist.export(target)
+        playlist.export(
+            target, format="mp3",
+            bitrate="320k")  # can't use `parameters=["-c", "copy"]`
 
     if preview != 0:
-        for track in tracks:
+        for idx, track in enumerate(tracks):
             audio = track['audio']
             if track.get('skip'):
                 continue
 
-            print('==== [{len}] {artist} - {title}'.format(
+            print('\n==== {idx} [{len}] {artist} - {title}'.format(
                 **track, acc=round_to_sec(timedelta(seconds=overalltime))))
             pydub.playback.play(audio[:preview])
             pydub.playback.play(audio[-preview:])

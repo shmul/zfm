@@ -35,12 +35,15 @@ def prepare(file: str = '',
     audio = pydub.AudioSegment.from_file(pathlib.Path(file),
                                          parameters=["-c", "copy"])
     ln = len(audio)
-    if not tail:
-        tail = ln / 1000
+    tl = 0
+    if tail == None:
+        tl = ln / 1000
+    else:
+        tl = -abs(float(tail))
 
     s = offset(start, head)
-    e = offset(end, tail)
-
+    e = offset(end, tl)
+    #print(file, s, e)
     audio = audio[s:e]
     if fade_in:
         audio = audio.fade_in(tomsecs(fade_in))
