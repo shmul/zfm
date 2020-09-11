@@ -53,11 +53,12 @@ def zfm():
               help='target dir for cropped files',
               show_default=False)
 @click.argument('filename', type=click.Path(exists=True))
-def crop(start, end, head, tail, fade_in, fade_out, play, filename):
+def crop(start, end, head, tail, fade_in, fade_out, play, target_dir,
+         filename):
     '''Crop file'''
     click.echo('zfm crop')
     actions.crop.crop(filename, start, end, head, tail, fade_in, fade_out,
-                      play)
+                      play, target_dir)
 
 
 @zfm.command()

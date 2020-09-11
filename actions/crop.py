@@ -101,19 +101,37 @@ def crop_many(csvfile: str,
             if just >= 0 and idx != just:
                 continue
 
-            row['target_dir'] = cropped
-            row['file'] = urllib.parse.unquote(
+            # another input option is for a list of `key=value` pairs
+            record = row.copy()
+            for k in row:
+                if row[k] == None:
+                    continue
+                parts = row[k].split("=")
+                if len(parts) == 2:
+                    record[k] = None
+                    key = parts[0].strip()
+                    value = parts[1].strip()
+                    if key == "" or value == "":
+                        raise Exception(row[k])
+                    else:
+                        record[key] = value
+
+            record['target_dir'] = cropped
+            record['file'] = urllib.parse.unquote(
                 urllib.parse.urlparse(row['file']).path)
-            audio = crop(**row, dry_run=True)
+
+            audio = crop(**record, dry_run=True)
             mi = pydub.utils.mediainfo(row['file'])
             tags = mi.get('TAG')
             if tags != None:
                 artist = tags.get('ARTIST') or tags.get('artist')
                 title = tags.get('TITLE') or tags.get('title')
                 skip = False
+                if artist == None:
+                    artist = os.path.basename(row['file'])
             else:
-                artist = row['file']
-                title = ''
+                artist = os.path.basename(row['file'])
+                title = None
                 skip = True
 
             s = 0
@@ -131,8 +149,13 @@ def crop_many(csvfile: str,
                 "len": str(round_to_sec(ln)),
             }
             tracks.append(track)
-            print('({acc}) [{len}] {artist} - {title}'.format(
-                **track, acc=round_to_sec(timedelta(seconds=overalltime))))
+            line = '({acc}) [{len}] {artist} - {title}'
+            if title == None or title == "":
+                line = '({acc}) [{len}] {artist}'
+
+            print(
+                line.format(**track,
+                            acc=round_to_sec(timedelta(seconds=overalltime))))
             overalltime += s
 
     playlist = pydub.AudioSegment.empty()
