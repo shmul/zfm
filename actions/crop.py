@@ -37,6 +37,7 @@ def crop(file: str,
          play: bool = False,
          target_dir: str = None,
          dry_run: bool = False):
+
     segment, identical = prepare(file,
                                  start=start,
                                  end=end,
@@ -90,6 +91,7 @@ def crop_many(csvfile: str,
               target_dir: str,
               preview: float,
               just: int,
+              one_by_one: bool,
               dry_run: bool = False) -> AudioFiles:
     tracks = []
     cropped = at_targe_dir(csvfile, target_dir)
@@ -119,7 +121,6 @@ def crop_many(csvfile: str,
             record['target_dir'] = cropped
             record['file'] = urllib.parse.unquote(
                 urllib.parse.urlparse(row['file']).path)
-
             audio = crop(**record, dry_run=True)
             mi = pydub.utils.mediainfo(row['file'])
             tags = mi.get('TAG')
@@ -169,7 +170,7 @@ def crop_many(csvfile: str,
 
     print("overall time", str(round_to_sec(timedelta(seconds=overalltime))))
 
-    if not dry_run:
+    if not dry_run and not one_by_one and just == -1:
         target = os.path.join(cropped, "playlist.mp3")
         print(target)
         playlist.export(

@@ -36,14 +36,12 @@ def prepare(file: str = '',
                                          parameters=["-c", "copy"])
     ln = len(audio)
     tl = 0
-    if tail == None:
+    if tail == None or tail == "":
         tl = ln / 1000
     else:
         tl = -abs(float(tail))
-
     s = offset(start, head)
     e = offset(end, tl)
-    #print(file, s, e)
     audio = audio[s:e]
     if fade_in:
         audio = audio.fade_in(tomsecs(fade_in))
