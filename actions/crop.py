@@ -86,6 +86,15 @@ def to_csv(m3ufile: str, target_dir: str):
             writer.writerow({'file': track.path})
 
 
+def preview_track(preview: int,idx: int,track):
+    audio = track['audio']
+    if track.get('skip'):
+        return
+
+    print('\n==== {idx} [{len}] {artist} - {title}'.format(**track))
+    pydub.playback.play(audio[:preview])
+    pydub.playback.play(audio[-preview:])
+
 #file,start,end,head,tail,fade_in,fade_out,
 def crop_many(csvfile: str,
               target_dir: str,
@@ -104,13 +113,18 @@ def crop_many(csvfile: str,
                 continue
 
             # another input option is for a list of `key=value` pairs
+            kvmode = False
             record = row.copy()
             for k in row:
                 if row[k] == None:
                     continue
                 parts = row[k].split("=")
                 if len(parts) == 2:
-                    record[k] = None
+                    if not kvmode:  # we switch to kv mode so we need to clear all the existing value
+                        kvmode = True
+                        for kk in record:
+                            record[kk] = None
+
                     key = parts[0].strip()
                     value = parts[1].strip()
                     if key == "" or value == "":
@@ -163,7 +177,9 @@ def crop_many(csvfile: str,
 
     with open(os.path.join(cropped, "tracklist.txt"), 'w') as tracklist:
         for track in tracks:
-            playlist += track['audio']
+            if preview==0:
+                playlist += track['audio']
+
             if track.get('skip'):
                 continue
             tracklist.write('{artist} - {title}\n'.format(**track))
@@ -179,11 +195,4 @@ def crop_many(csvfile: str,
 
     if preview != 0:
         for idx, track in enumerate(tracks):
-            audio = track['audio']
-            if track.get('skip'):
-                continue
-
-            print('\n==== {idx} [{len}] {artist} - {title}'.format(
-                **track, acc=round_to_sec(timedelta(seconds=overalltime))))
-            pydub.playback.play(audio[:preview])
-            pydub.playback.play(audio[-preview:])
+            preview_track(preview,idx,track)
