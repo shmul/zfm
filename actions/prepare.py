@@ -50,5 +50,4 @@ def prepare(file: str = '',
         audio = audio.fade_in(tomsecs(fade_in))
     if fade_out:
         audio = audio.fade_out(tomsecs(fade_out))
-
     return audio, len(audio) == ln

@@ -1,5 +1,6 @@
 import actions.play
 import actions.crop
+import actions.generate
 import click
 
 
@@ -143,6 +144,12 @@ def play(head, tail, fade_in, fade_out, files):
     '''Play files'''
     actions.play.playall(head, tail, fade_in, fade_out, files)
 
+
+@zfm.command()
+@click.argument('dir', nargs=1)
+def generate(dir):
+    '''generate playlist.csv file from dir'''
+    actions.generate.generate(dir)
 
 if __name__ == '__main__':
     zfm()
