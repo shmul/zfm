@@ -32,8 +32,8 @@ def prepare(file: str = '',
             fade_in: float = 0,
             fade_out: float = 0) -> (pydub.AudioSegment, bool):
     file = os.path.realpath(file)
-    audio = pydub.AudioSegment.from_file(pathlib.Path(file),
-                                         parameters=["-c", "copy"])
+
+    audio = pydub.AudioSegment.from_file(pathlib.Path(file),parameters=["-c", "copy"])
     ln = len(audio)
     tl = 0
     if tail != None:

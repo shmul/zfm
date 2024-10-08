@@ -111,7 +111,6 @@ def crop_many(csvfile: str,
         for idx, row in enumerate(csv.DictReader(file)):
             if just >= 0 and idx != just:
                 continue
-
             # another input option is for a list of `key=value` pairs
             kvmode = False
             record = row.copy()
