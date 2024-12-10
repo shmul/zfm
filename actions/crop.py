@@ -38,6 +38,10 @@ def crop(file: str,
          target_dir: str = None,
          dry_run: bool = False):
 
+    print(f"\nDEBUG: Starting crop operation for {file}")
+    print(f"DEBUG: Parameters - start:{start}, end:{end}, head:{head}, tail:{tail}")
+    print(f"DEBUG: Fade parameters - in:{fade_in}, out:{fade_out}")
+
     segment, identical = prepare(file,
                                start=start,
                                end=end,
@@ -47,21 +51,28 @@ def crop(file: str,
                                fade_out=fade_out)
     
     if segment is None:
-        print(f"Failed to process file: {file}")
+        print(f"ERROR: Crop failed - prepare returned None for file: {file}")
         return None
 
     if play:
+        print("DEBUG: Playing audio segment")
         pydub.playback.play(segment)
         return
 
     cropped = at_targe_dir(file, target_dir)
     target = os.path.join(cropped, os.path.basename(file))
+    print(f"DEBUG: Target file: {target}")
+    
     if not dry_run:
+        print("DEBUG: Processing file (not dry run)")
         if os.path.exists(target):
+            print("DEBUG: Removing existing target file")
             os.remove(target)
         if identical:
+            print("DEBUG: Creating symlink (identical files)")
             os.symlink(file, target)
         else:
+            print("DEBUG: Exporting processed audio")
             segment.export(target)
 
     return segment
