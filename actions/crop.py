@@ -39,12 +39,17 @@ def crop(file: str,
          dry_run: bool = False):
 
     segment, identical = prepare(file,
-                                 start=start,
-                                 end=end,
-                                 head=head,
-                                 tail=tail,
-                                 fade_in=fade_in,
-                                 fade_out=fade_out)
+                               start=start,
+                               end=end,
+                               head=head,
+                               tail=tail,
+                               fade_in=fade_in,
+                               fade_out=fade_out)
+    
+    if segment is None:
+        print(f"Failed to process file: {file}")
+        return None
+
     if play:
         pydub.playback.play(segment)
         return

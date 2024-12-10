@@ -32,8 +32,22 @@ def prepare(file: str = '',
             fade_in: float = 0,
             fade_out: float = 0) -> (pydub.AudioSegment, bool):
     file = os.path.realpath(file)
+    
+    # First convert FLAC to WAV if needed
+    file_ext = os.path.splitext(file)[1].lower()
+    try:
+        if file_ext == '.flac':
+            audio = pydub.AudioSegment.from_file(pathlib.Path(file), format='flac')
+        else:
+            audio = pydub.AudioSegment.from_file(pathlib.Path(file))
+    except Exception as e:
+        print(f"Error loading audio file {file}: {str(e)}")
+        return None, False
 
-    audio = pydub.AudioSegment.from_file(pathlib.Path(file))
+    if audio is None:
+        print(f"Failed to load audio file {file}")
+        return None, False
+
     ln = len(audio)
     tl = 0
     if tail != None:
@@ -43,11 +57,16 @@ def prepare(file: str = '',
 
     s = offset(start, head)
     e = offset(end, tl)
-    if e==0:
+    if e == 0:
         e = ln
-    audio = audio[s:e]
-    if fade_in:
-        audio = audio.fade_in(tomsecs(fade_in))
-    if fade_out:
-        audio = audio.fade_out(tomsecs(fade_out))
-    return audio, len(audio) == ln
+
+    try:
+        audio = audio[s:e]
+        if fade_in:
+            audio = audio.fade_in(tomsecs(fade_in))
+        if fade_out:
+            audio = audio.fade_out(tomsecs(fade_out))
+        return audio, len(audio) == ln
+    except Exception as e:
+        print(f"Error processing audio: {str(e)}")
+        return None, False
