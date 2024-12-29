@@ -20,7 +20,7 @@ class track():
     length (seconds)
     Song title
     file name - relative or absolute path of file
-    ..\Minus The Bear - Planet of Ice\Minus The Bear_Planet of Ice_01_Burying Luck.mp3
+    ..Minus The Bear - Planet of Ice Minus The Bear_Planet of Ice_01_Burying Luck.mp3
 """
 
 
