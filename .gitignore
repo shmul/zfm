@@ -1,5 +1,10 @@
 *.pyc
 
 venv/
+.venv/
+env/
 .cache/
 *~
+*.egg-info/
+setenv
+/.aider.*

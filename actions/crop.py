@@ -1,6 +1,9 @@
 import pydub
 import pydub.playback
 import pydub.utils
+import subprocess
+import os
+import tempfile
 import typing
 import csv
 import os
@@ -46,7 +49,7 @@ def crop(file: str,
                                  fade_in=fade_in,
                                  fade_out=fade_out)
     if play:
-        pydub.playback.play(segment)
+        play_quiet(segment)
         return
 
     cropped = at_targe_dir(file, target_dir)
@@ -86,14 +89,28 @@ def to_csv(m3ufile: str, target_dir: str):
             writer.writerow({'file': track.path})
 
 
+def play_quiet(segment):
+    """Play audio segment without verbose output"""
+    with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
+        segment.export(f.name, format="wav")
+        try:
+            subprocess.run(
+                ["ffplay", "-nodisp", "-autoexit", f.name],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                check=False
+            )
+        finally:
+            os.unlink(f.name)
+
 def preview_track(preview: int,idx: int,track):
     audio = track['audio']
     if track.get('skip'):
         return
 
     print('\n==== {idx} [{len}] {artist} - {title}'.format(**track))
-    pydub.playback.play(audio[:preview])
-    pydub.playback.play(audio[-preview:])
+    play_quiet(audio[:preview])
+    play_quiet(audio[-preview:])
 
 #file,start,end,head,tail,fade_in,fade_out,
 def crop_many(csvfile: str,

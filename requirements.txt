@@ -1,7 +1,8 @@
-# Run pip install --requirement=requirements.txt to install all requirements
+# Run uv sync to install all dependencies
 
 click==7.1.1
 py==1.10.0
 pytest==3.2.3
-pydub==0.23.1
+pydub==0.25.1
 pytimeparse==1.1.8
+audioop-lts>=0.2.1; python_version>='3.13'
