@@ -11,5 +11,5 @@ def generate(dir: str):
 
         for (dirpath, dirnames, filenames) in walk(dir):
             for name in filenames:
-                if name.endswith(".mp3") or name.endswith(".flac"):
+                if name.lower().endswith(".mp3") or name.lower().endswith(".flac"):
                     print( "\"{}\",".format(os.path.join(dir,name)),file=f)
