@@ -21,6 +21,6 @@ dependencies = [
 zfm = "zfm:zfm"
 
 [tool.uv]
-dev-dependencies = [
-    "pytest==3.2.3",
-]
+#dev-dependencies = [
+#    "pytest==3.2.3",
+#]

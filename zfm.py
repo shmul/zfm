@@ -3,7 +3,6 @@ import actions.crop
 import actions.generate
 import click
 
-
 @click.group()
 def zfm():
     pass
@@ -58,13 +57,23 @@ def zfm():
               default=False,
               help='just prepare but don\'t write',
               show_default=True)
+@click.option('--analyze-silence/--no-analyze-silence',
+              '-a',
+              default=False,
+              help='analyze tail for silence detection',
+              show_default=True)
+@click.option('--silence-thresh',
+              default=-40.0,
+              type=float,
+              help='silence threshold in dBFS',
+              show_default=True)
 @click.argument('filename', type=click.Path(exists=True))
-def crop(start, end, head, tail, fade_in, fade_out, play, target_dir,dry_run,
-         filename):
+def crop(start, end, head, tail, fade_in, fade_out, play, target_dir, dry_run,
+         analyze_silence, silence_thresh, filename):
     '''Crop file'''
     click.echo('zfm crop')
     actions.crop.crop(filename, start, end, head, tail, fade_in, fade_out,
-                      play, target_dir,dry_run)
+                      play, target_dir, dry_run, analyze_silence, silence_thresh)
 
 
 @zfm.command()
@@ -150,6 +159,44 @@ def play(head, tail, fade_in, fade_out, files):
 def generate(dir):
     '''generate playlist.csv file from dir'''
     actions.generate.generate(dir)
+
+
+@zfm.command()
+@click.option('--analysis-duration',
+              '-d',
+              default=30.0,
+              type=float,
+              help='seconds of audio tail to analyze',
+              show_default=True)
+@click.option('--silence-thresh',
+              '-t',
+              default=-40.0,
+              type=float,
+              help='silence threshold in dBFS',
+              show_default=True)
+@click.option('--min-silence',
+              '-m',
+              default=1.0,
+              type=float,
+              help='minimum silence duration in seconds',
+              show_default=True)
+@click.argument('filename', type=click.Path(exists=True))
+def analyze(analysis_duration, silence_thresh, min_silence, filename):
+    '''analyze audio file for silence detection'''
+    import pydub
+    from actions.volume import analyze_tail_silence, format_silence_analysis
+    
+    print(f"Loading: {filename}")
+    audio = pydub.AudioSegment.from_file(filename)
+    
+    analysis = analyze_tail_silence(
+        audio, 
+        analysis_duration=analysis_duration,
+        silence_thresh=silence_thresh,
+        min_silence_len=min_silence
+    )
+    
+    print(format_silence_analysis(analysis))
 
 if __name__ == '__main__':
     zfm()

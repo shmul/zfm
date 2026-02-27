@@ -6,3 +6,5 @@ pytest==3.2.3
 pydub==0.25.1
 pytimeparse==1.1.8
 audioop-lts>=0.2.1; python_version>='3.13'
+opencv-python==4.5.3.56
+Pillow==8.2.0

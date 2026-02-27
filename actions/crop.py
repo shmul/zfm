@@ -9,6 +9,7 @@ import csv
 import os
 from actions.prepare import prepare
 from actions.m3uparser import parsem3u
+from actions.volume import analyze_tail_silence, format_silence_analysis
 
 from datetime import timedelta
 import urllib.parse
@@ -39,7 +40,9 @@ def crop(file: str,
          fade_out: float,
          play: bool = False,
          target_dir: str = None,
-         dry_run: bool = False):
+         dry_run: bool = False,
+         analyze_silence: bool = False,
+         silence_thresh: float = -40.0):
 
     segment, identical = prepare(file,
                                  start=start,
@@ -48,6 +51,15 @@ def crop(file: str,
                                  tail=tail,
                                  fade_in=fade_in,
                                  fade_out=fade_out)
+    
+    # Analyze silence if requested
+    if analyze_silence:
+        print(f"\nAnalyzing silence in: {file}")
+        analysis = analyze_tail_silence(segment, silence_thresh=silence_thresh)
+        print(format_silence_analysis(analysis))
+        if analysis['suggested_trim_from_end_seconds']:
+            print(f"Consider adding --tail {analysis['suggested_trim_from_end_seconds']:.1f} to remove silence")
+    
     if play:
         play_quiet(segment)
         return
@@ -132,7 +144,7 @@ def crop_many(csvfile: str,
             kvmode = False
             record = row.copy()
             for k in row:
-                if row[k] == None:
+                if not row[k]:
                     continue
                 parts = row[k].split("=")
                 if len(parts) == 2:

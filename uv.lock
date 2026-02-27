@@ -1,5 +1,5 @@
 version = 1
-revision = 2
+revision = 3
 requires-python = ">=3.8"
 resolution-markers = [
     "python_full_version >= '3.13'",
@@ -145,11 +145,6 @@ dependencies = [
     { name = "pytimeparse" },
 ]
 
-[package.dev-dependencies]
-dev = [
-    { name = "pytest" },
-]
-
 [package.metadata]
 requires-dist = [
     { name = "audioop-lts", marker = "python_full_version >= '3.13'", specifier = ">=0.2.1" },
@@ -159,6 +154,3 @@ requires-dist = [
     { name = "pytest", specifier = "==3.2.3" },
     { name = "pytimeparse", specifier = "==1.1.8" },
 ]
-
-[package.metadata.requires-dev]
-dev = [{ name = "pytest", specifier = "==3.2.3" }]
