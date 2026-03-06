@@ -14,12 +14,9 @@ import (
 )
 
 // newCmd logs the command string at debug level and returns a ready Process.
-func newCmd(cmd string, err error) (*procs.Process, error) {
-	if err != nil {
-		return nil, err
-	}
+func newCmd(cmd string) *procs.Process {
 	log.Debug().Str("cmd", cmd).Msg("exec")
-	return procs.NewProcess(cmd), nil
+	return procs.NewProcess(cmd)
 }
 
 type (
@@ -50,7 +47,7 @@ func VolumeStatsRange(path string, ss, to float64) (VolumeInfo, error) {
 }
 
 func volumeDetect(path string, ss, to float64) (VolumeInfo, error) {
-	args := []string{}
+	var args []string
 	if ss >= 0 {
 		args = append(args, "-ss", fmt.Sprintf("%.3f", ss))
 	}
@@ -59,10 +56,11 @@ func volumeDetect(path string, ss, to float64) (VolumeInfo, error) {
 	}
 	args = append(args, "-i", path, "-af", "volumedetect", "-f", "null", "-")
 
-	p, err := newCmd(ProcsCmdStr("ffmpeg", args))
+	cmd, err := ProcsCmdStr("ffmpeg", args)
 	if err != nil {
 		return VolumeInfo{}, err
 	}
+	p := newCmd(cmd)
 	runErr := p.Run()
 	errBytes, _ := p.ErrOutput()
 	if runErr != nil && len(errBytes) == 0 {

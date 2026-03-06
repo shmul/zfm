@@ -37,6 +37,12 @@ func TestParseTime(t *testing.T) {
 			_, err := ParseTime("notatime")
 			require.Error(t, err)
 		})
+
+		bdd.Test(t, "sub-second input", func() {
+			v, err := ParseTime("1:30.5")
+			require.NoError(t, err)
+			require.Equal(t, 90.5, v)
+		})
 	})
 }
 

@@ -56,9 +56,9 @@ func ffplay(path string) error {
 	if err != nil {
 		return err
 	}
-	p, err := newCmd(ProcsCmdStr("ffplay", []string{"-nodisp", "-autoexit", abs}))
+	cmd, err := ProcsCmdStr("ffplay", []string{"-nodisp", "-autoexit", abs})
 	if err != nil {
 		return err
 	}
-	return p.Run()
+	return newCmd(cmd).Run()
 }

@@ -299,8 +299,9 @@ func parseRecord(record, header []string) map[string]string {
 	}
 	if kvMode {
 		for _, v := range record {
-			parts := strings.SplitN(strings.TrimSpace(v), "=", 2)
-			if len(parts) == 2 {
+			v = strings.TrimSpace(v)
+			if isKVCell(v) {
+				parts := strings.SplitN(v, "=", 2)
 				row[strings.TrimSpace(parts[0])] = strings.TrimSpace(parts[1])
 			}
 		}

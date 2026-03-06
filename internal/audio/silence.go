@@ -56,10 +56,11 @@ func DetectSilence(path string, p SilenceParams) (SilenceAnalysis, error) {
 		args = append([]string{"-ss", fmt.Sprintf("%.3f", ss)}, args...)
 	}
 	args = append(args, "-af", filter, "-f", "null", "-")
-	proc, err := newCmd(ProcsCmdStr("ffmpeg", args))
+	cmd, err := ProcsCmdStr("ffmpeg", args)
 	if err != nil {
 		return SilenceAnalysis{}, err
 	}
+	proc := newCmd(cmd)
 	proc.Run() //nolint:errcheck // non-zero exit is expected for -f null
 	errBytes, _ := proc.ErrOutput()
 

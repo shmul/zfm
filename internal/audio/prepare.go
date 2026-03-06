@@ -131,24 +131,20 @@ func Execute(r Recipe, dest string) error {
 	ss := fmt.Sprintf("%.3f", r.SS)
 	to := fmt.Sprintf("%.3f", r.To)
 
+	var ffArgs []string
 	if r.FadeIn == 0 && r.FadeOut == 0 {
-		args := []string{"-ss", ss, "-to", to, "-i", r.InputPath, "-c", "copy", "-y", dest}
-		p, err := newCmd(ProcsCmdStr("ffmpeg", args))
-		if err != nil {
-			return err
-		}
-		return p.Run()
+		ffArgs = []string{"-ss", ss, "-to", to, "-i", r.InputPath, "-c", "copy", "-y", dest}
+	} else {
+		// asetpts=PTS-STARTPTS normalises timestamps to 0 after the seek so that
+		// afade positions are relative to the segment start, not the original file.
+		segDur := r.To - r.SS
+		ffArgs = []string{"-ss", ss, "-to", to, "-i", r.InputPath, "-af", buildFadeFilter(segDur, r.FadeIn, r.FadeOut, r.FadeCurve), "-y", dest}
 	}
-
-	// asetpts=PTS-STARTPTS normalises timestamps to 0 after the seek so that
-	// afade positions are relative to the segment start, not the original file.
-	segDur := r.To - r.SS
-	args := []string{"-ss", ss, "-to", to, "-i", r.InputPath, "-af", buildFadeFilter(segDur, r.FadeIn, r.FadeOut, r.FadeCurve), "-y", dest}
-	p, err := newCmd(ProcsCmdStr("ffmpeg", args))
+	cmd, err := ProcsCmdStr("ffmpeg", ffArgs)
 	if err != nil {
 		return err
 	}
-	return p.Run()
+	return newCmd(cmd).Run()
 }
 
 func buildFadeFilter(segDur, fadeIn, fadeOut float64, curve string) string {
