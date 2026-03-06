@@ -1,7 +1,17 @@
 *.pyc
 
 venv/
+.crush/
+.venv/
+env/
 .cache/
 *~
-.aider*
-.env
+*.egg-info/
+setenv
+/.aider.*
+/zfm
+/todo/
+/spec/
+/.claude/
+/.task/
+/.taskrc

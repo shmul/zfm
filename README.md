@@ -6,17 +6,17 @@ Zifim, you know, to make your radio chores easier
 
 Install the requirements:
 ```
-$ pip install -r requirements.txt
+$ uv sync
 ```
 
 Run the application:
 ```
-$ python -m zfm --help
+$ uv run zfm.py --help
 ```
 
 To run the tests:
 ```
-    $ pytest
+$ uv run pytest
 ```
 
 ## TODO

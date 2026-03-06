@@ -1,11 +1,15 @@
 import pydub
 import pydub.playback
 import pydub.utils
+import subprocess
+import os
+import tempfile
 import typing
 import csv
 import os
 from actions.prepare import prepare
 from actions.m3uparser import parsem3u
+from actions.volume import analyze_tail_silence, format_silence_analysis
 
 from datetime import timedelta
 import urllib.parse
@@ -36,43 +40,38 @@ def crop(file: str,
          fade_out: float,
          play: bool = False,
          target_dir: str = None,
-         dry_run: bool = False):
-
-    print(f"\nDEBUG: Starting crop operation for {file}")
-    print(f"DEBUG: Parameters - start:{start}, end:{end}, head:{head}, tail:{tail}")
-    print(f"DEBUG: Fade parameters - in:{fade_in}, out:{fade_out}")
+         dry_run: bool = False,
+         analyze_silence: bool = False,
+         silence_thresh: float = -40.0):
 
     segment, identical = prepare(file,
-                               start=start,
-                               end=end,
-                               head=head,
-                               tail=tail,
-                               fade_in=fade_in,
-                               fade_out=fade_out)
+                                 start=start,
+                                 end=end,
+                                 head=head,
+                                 tail=tail,
+                                 fade_in=fade_in,
+                                 fade_out=fade_out)
     
-    if segment is None:
-        print(f"ERROR: Crop failed - prepare returned None for file: {file}")
-        return None
-
+    # Analyze silence if requested
+    if analyze_silence:
+        print(f"\nAnalyzing silence in: {file}")
+        analysis = analyze_tail_silence(segment, silence_thresh=silence_thresh)
+        print(format_silence_analysis(analysis))
+        if analysis['suggested_trim_from_end_seconds']:
+            print(f"Consider adding --tail {analysis['suggested_trim_from_end_seconds']:.1f} to remove silence")
+    
     if play:
-        print("DEBUG: Playing audio segment")
-        pydub.playback.play(segment)
+        play_quiet(segment)
         return
 
     cropped = at_targe_dir(file, target_dir)
     target = os.path.join(cropped, os.path.basename(file))
-    print(f"DEBUG: Target file: {target}")
-    
     if not dry_run:
-        print("DEBUG: Processing file (not dry run)")
         if os.path.exists(target):
-            print("DEBUG: Removing existing target file")
             os.remove(target)
         if identical:
-            print("DEBUG: Creating symlink (identical files)")
             os.symlink(file, target)
         else:
-            print("DEBUG: Exporting processed audio")
             segment.export(target)
 
     return segment
@@ -102,14 +101,28 @@ def to_csv(m3ufile: str, target_dir: str):
             writer.writerow({'file': track.path})
 
 
+def play_quiet(segment):
+    """Play audio segment without verbose output"""
+    with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
+        segment.export(f.name, format="wav")
+        try:
+            subprocess.run(
+                ["ffplay", "-nodisp", "-autoexit", f.name],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                check=False
+            )
+        finally:
+            os.unlink(f.name)
+
 def preview_track(preview: int,idx: int,track):
     audio = track['audio']
     if track.get('skip'):
         return
 
     print('\n==== {idx} [{len}] {artist} - {title}'.format(**track))
-    pydub.playback.play(audio[:preview])
-    pydub.playback.play(audio[-preview:])
+    play_quiet(audio[:preview])
+    play_quiet(audio[-preview:])
 
 #file,start,end,head,tail,fade_in,fade_out,
 def crop_many(csvfile: str,
@@ -131,7 +144,7 @@ def crop_many(csvfile: str,
             kvmode = False
             record = row.copy()
             for k in row:
-                if row[k] == None:
+                if not row[k]:
                     continue
                 parts = row[k].split("=")
                 if len(parts) == 2:
