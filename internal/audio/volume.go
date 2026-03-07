@@ -70,11 +70,11 @@ func volumeDetect(path string, ss, to float64) (VolumeInfo, error) {
 	out := string(errBytes)
 	mean, err := parseDBFS(reMean, out)
 	if err != nil {
-		return VolumeInfo{}, fmt.Errorf("mean_volume: %w", err)
+		return VolumeInfo{}, err
 	}
 	peak, err := parseDBFS(rePeak, out)
 	if err != nil {
-		return VolumeInfo{}, fmt.Errorf("max_volume: %w", err)
+		return VolumeInfo{}, err
 	}
 
 	return VolumeInfo{Mean: mean, Peak: peak}, nil

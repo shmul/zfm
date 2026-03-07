@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/shmul/zfm/internal/audio"
 	"github.com/stretchr/testify/require"
 	"github.com/themakers/bdd"
 )
@@ -73,15 +74,15 @@ func TestReadCSV(t *testing.T) {
 }
 
 func TestFmtDuration(t *testing.T) {
-	bdd.Scenario(t, "fmtDuration formats seconds to mm:ss or h:mm:ss", func(t *testing.T, _ string) {
+	bdd.Scenario(t, "audio.FmtDuration formats seconds to mm:ss or h:mm:ss", func(t *testing.T, _ string) {
 		bdd.Test(t, "under one hour", func() {
-			require.Equal(t, "3:05", fmtDuration(185))
+			require.Equal(t, "3:05", audio.FmtDuration(185))
 		})
 		bdd.Test(t, "exactly one hour", func() {
-			require.Equal(t, "1:00:00", fmtDuration(3600))
+			require.Equal(t, "1:00:00", audio.FmtDuration(3600))
 		})
 		bdd.Test(t, "zero", func() {
-			require.Equal(t, "0:00", fmtDuration(0))
+			require.Equal(t, "0:00", audio.FmtDuration(0))
 		})
 	})
 }

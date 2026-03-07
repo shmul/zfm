@@ -12,9 +12,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"time"
 
-	"github.com/ionrock/procs"
 	"github.com/rs/zerolog/log"
 	"github.com/shmul/zfm/internal/audio"
 	"golang.org/x/sync/errgroup"
@@ -95,7 +93,7 @@ func Run(p Params) error {
 
 	printTracklist(results, p.Just)
 
-	fmt.Println("overall time", fmtDuration(overallDur))
+	fmt.Println("overall time", audio.FmtDuration(overallDur))
 
 	if err := writeTracklist(destDir, results); err != nil {
 		return err
@@ -191,7 +189,7 @@ func printTracklist(results []trackResult, just int) {
 		if tr.destPath == "" {
 			continue
 		}
-		line := fmt.Sprintf("(%s) [%s] %s", fmtDuration(acc), fmtDuration(tr.duration), tr.artist)
+		line := fmt.Sprintf("(%s) [%s] %s", audio.FmtDuration(acc), audio.FmtDuration(tr.duration), tr.artist)
 		if tr.title != "" {
 			line += " - " + tr.title
 		}
@@ -220,35 +218,17 @@ func writeTracklist(destDir string, results []trackResult) error {
 }
 
 func concatPlaylist(destDir string, results []trackResult) error {
-	listFile := filepath.Join(destDir, "concat.txt")
-	f, err := os.Create(listFile)
-	if err != nil {
-		return err
-	}
+	var paths []string
 	for _, tr := range results {
-		if tr.destPath == "" {
-			continue
+		if tr.destPath != "" {
+			paths = append(paths, tr.destPath)
 		}
-		abs, _ := filepath.Abs(tr.destPath)
-		fmt.Fprintf(f, "file '%s'\n", strings.ReplaceAll(abs, "'", "'\\''"))
 	}
-	f.Close()
-
-	target := filepath.Join(destDir, "playlist.mp3")
-	fmt.Println(target)
-
-	args := []string{"-f", "concat", "-safe", "0", "-i", listFile, "-b:a", "320k", "-y", target}
-	cmd, err := audio.ProcsCmdStr("ffmpeg", args)
-	if err != nil {
-		return err
-	}
-	p := procs.NewProcess(cmd)
-	p.ErrHandler = func(line string) string { fmt.Fprintln(os.Stderr, line); return line }
-	return p.Run()
+	return audio.ConcatFiles(paths, filepath.Join(destDir, "playlist.mp3"))
 }
 
 func previewTrack(tr trackResult, previewSecs, silenceThresh float64) {
-	fmt.Printf("\n==== %02d [%s] %s", tr.idx, fmtDuration(tr.duration), tr.artist)
+	fmt.Printf("\n==== %02d [%s] %s", tr.idx, audio.FmtDuration(tr.duration), tr.artist)
 	if tr.title != "" {
 		fmt.Printf(" - %s", tr.title)
 	}
@@ -353,15 +333,4 @@ func parseFloat(s string) float64 {
 	}
 	v, _ := strconv.ParseFloat(s, 64)
 	return v
-}
-
-func fmtDuration(secs float64) string {
-	d := time.Duration(secs) * time.Second
-	h := int(d.Hours())
-	m := int(d.Minutes()) % 60
-	s := int(d.Seconds()) % 60
-	if h > 0 {
-		return fmt.Sprintf("%d:%02d:%02d", h, m, s)
-	}
-	return fmt.Sprintf("%d:%02d", m, s)
 }

@@ -12,9 +12,17 @@ import (
 	"github.com/shmul/zfm/internal/audio"
 	zcsv "github.com/shmul/zfm/internal/csv"
 	"github.com/shmul/zfm/internal/m3u"
+	"github.com/shmul/zfm/internal/mix"
 )
 
-var csvFieldNames = []string{"file", "start", "end", "head", "tail", "fade_in", "fade_out", "fade_curve"}
+var (
+	csvFieldNames = []string{"file", "start", "end", "head", "tail", "fade_in", "fade_out", "fade_curve"}
+	trackKeyNorm  = strings.NewReplacer(
+		"\u2018", "", "\u2019", "", // curly single quotes → drop
+		"\u201c", "", "\u201d", "", // curly double quotes → drop
+		"\u2013", "-", "\u2014", "-", // en/em dash → hyphen
+	)
+)
 
 func (c *cropCmd) Execute(_ []string) error {
 	verbose()
@@ -129,7 +137,39 @@ func (c *playCmd) Execute(_ []string) error {
 
 func (c *generateCmd) Execute(_ []string) error {
 	verbose()
-	csvPath := filepath.Join(c.Args.Dir, "playlist.csv")
+
+	dirBase := filepath.Base(c.Args.Dir)
+	var files []string
+	if err := filepath.WalkDir(c.Args.Dir, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
+			return nil
+		}
+		name := d.Name()
+		lower := strings.ToLower(name)
+		if !strings.HasSuffix(lower, ".mp3") && !strings.HasSuffix(lower, ".flac") {
+			return nil
+		}
+		// skip generated output files
+		if name == "playlist.mp3" || name == dirBase+".mp3" {
+			return nil
+		}
+		files = append(files, path)
+		return nil
+	}); err != nil {
+		return err
+	}
+
+	if err := generateCSV(c.Args.Dir, files); err != nil {
+		return err
+	}
+	return generateMixTOML(c.Args.Dir, files)
+}
+
+func generateCSV(dir string, files []string) error {
+	csvPath := filepath.Join(dir, "playlist.csv")
 	f, err := os.Create(csvPath)
 	if err != nil {
 		return err
@@ -142,20 +182,74 @@ func (c *generateCmd) Execute(_ []string) error {
 	if err := w.Write(csvFieldNames); err != nil {
 		return err
 	}
-
-	return filepath.WalkDir(c.Args.Dir, func(path string, d os.DirEntry, err error) error {
-		if err != nil {
+	for _, path := range files {
+		if err := w.Write([]string{path, ""}); err != nil {
 			return err
 		}
-		if d.IsDir() {
-			return nil
+	}
+	return nil
+}
+
+func generateMixTOML(dir string, files []string) error {
+	base := filepath.Base(dir)
+	mixPath := filepath.Join(dir, base+".mix.toml")
+	f, err := os.Create(mixPath)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	w := &errWriter{w: f}
+	w.printf("output = %q\n\n[tracks]\n", base+".mp3")
+
+	keys := make([]string, len(files))
+	seen := map[string]int{}
+	for i, path := range files {
+		name := filepath.Base(path)
+		candidate := toTrackKey(strings.TrimSuffix(name, filepath.Ext(name)))
+		n := seen[candidate]
+		seen[candidate]++
+		key := candidate
+		if n > 0 {
+			key = fmt.Sprintf("%s_%d", candidate, n+1)
 		}
-		lower := strings.ToLower(path)
-		if strings.HasSuffix(lower, ".mp3") || strings.HasSuffix(lower, ".flac") {
-			return w.Write([]string{path, ""})
+		keys[i] = key
+		w.printf("%-24s = %q\n", key, name)
+	}
+
+	w.printf("\n")
+	for _, key := range keys {
+		w.printf("[[mix]]\ntrack = %q\n\n", key)
+	}
+	return w.err
+}
+
+// errWriter accumulates the first write error, allowing caller code to check once at the end.
+type errWriter struct {
+	w   *os.File
+	err error
+}
+
+func (ew *errWriter) printf(format string, args ...any) {
+	if ew.err != nil {
+		return
+	}
+	_, ew.err = fmt.Fprintf(ew.w, format, args...)
+}
+
+func toTrackKey(s string) string {
+	s = trackKeyNorm.Replace(strings.ToLower(s))
+	var b strings.Builder
+	for _, r := range s {
+		switch {
+		case r >= 'a' && r <= 'z', r >= '0' && r <= '9', r == '-':
+			b.WriteRune(r)
+		default:
+			b.WriteRune('_')
 		}
-		return nil
-	})
+	}
+	key := strings.Trim(b.String(), "_")
+	return strings.ReplaceAll(key, "__", "_")
 }
 
 func (c *analyzeCmd) Execute(_ []string) error {
@@ -164,6 +258,18 @@ func (c *analyzeCmd) Execute(_ []string) error {
 		Threshold:        c.SilenceThresh,
 		MinSilence:       c.MinSilence,
 		AnalysisDuration: c.AnalysisDuration,
+	})
+}
+
+func (c *mixCmd) Execute(_ []string) error {
+	verbose()
+	return mix.Run(mix.Params{
+		MixFile:       c.Args.Filename,
+		TargetDir:     c.TargetDir,
+		Preview:       c.Preview,
+		Just:          c.Just,
+		DryRun:        c.DryRun,
+		SilenceThresh: c.SilenceThresh,
 	})
 }
 

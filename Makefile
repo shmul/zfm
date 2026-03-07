@@ -45,3 +45,6 @@ clean:
 	$(GOCLEAN)
 	rm -f $(BINARY_NAME)
 	rm -f $(BINARY_LINUX)
+
+lint:
+	$(Q) golangci-lint run --timeout=5m -D errcheck -E unused

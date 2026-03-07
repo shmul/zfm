@@ -72,6 +72,17 @@ type (
 			Filename string `positional-arg-name:"filename" required:"true"`
 		} `positional-args:"true"`
 	}
+
+	mixCmd struct {
+		TargetDir     string  `long:"target-dir" description:"output directory"`
+		Preview       float64 `short:"p" long:"preview" default:"0" description:"play preview (secs) of head and tail"`
+		Just          int     `short:"j" long:"just" default:"-1" description:"process only slice N (zero-based)"`
+		DryRun        bool    `short:"n" long:"dry-run" description:"prepare but don't write"`
+		SilenceThresh float64 `long:"silence-thresh" default:"-50.0" description:"silence threshold for profile (dBFS)"`
+		Args          struct {
+			Filename string `positional-arg-name:"filename" required:"true"`
+		} `positional-args:"true"`
+	}
 )
 
 type zfmOpts struct {
@@ -82,6 +93,7 @@ type zfmOpts struct {
 	Play     playCmd     `command:"play" description:"Play files"`
 	Generate generateCmd `command:"generate" description:"Generate playlist.csv from directory"`
 	Analyze  analyzeCmd  `command:"analyze" description:"Analyze audio for silence"`
+	Mix      mixCmd      `command:"mix" description:"Compose from .mix file"`
 }
 
 var o zfmOpts

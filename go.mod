@@ -3,6 +3,7 @@ module github.com/shmul/zfm
 go 1.25.0
 
 require (
+	github.com/BurntSushi/toml v1.5.0
 	github.com/frioux/leatherman v0.0.0-20250407135824-de670f8c4afb
 	github.com/ionrock/procs v0.0.0-20230108235056-4ba188ce3ead
 	github.com/jessevdk/go-flags v1.6.1

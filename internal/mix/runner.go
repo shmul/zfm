@@ -1,0 +1,198 @@
+package mix
+
+import (
+	"fmt"
+	"math"
+	"os"
+	"path/filepath"
+
+	"github.com/shmul/zfm/internal/audio"
+)
+
+type (
+	Params struct {
+		MixFile       string
+		TargetDir     string
+		Just          int
+		DryRun        bool
+		Preview       float64
+		SilenceThresh float64
+	}
+
+	sliceResult struct {
+		idx      int
+		artist   string
+		title    string
+		duration float64
+		path     string
+		recipe   audio.Recipe
+	}
+)
+
+func Run(p Params) error {
+	mf, err := Parse(p.MixFile)
+	if err != nil {
+		return err
+	}
+
+	destDir := p.TargetDir
+	if destDir == "" {
+		destDir = filepath.Dir(p.MixFile)
+	}
+	if err := os.MkdirAll(destDir, 0o755); err != nil {
+		return err
+	}
+
+	results, cleanup, err := processSlices(p, mf, destDir)
+	defer cleanup()
+	if err != nil {
+		return err
+	}
+
+	return finalize(p, results, filepath.Join(destDir, mf.Output))
+}
+
+func processSlices(p Params, mf MixFile, destDir string) ([]sliceResult, func(), error) {
+	results := make([]sliceResult, len(mf.Mix))
+	var tmpPaths []string
+
+	for i, s := range mf.Mix {
+		if p.Just >= 0 && i != p.Just {
+			continue
+		}
+
+		r, info, err := audio.Prepare(audio.PrepareParams{
+			Path:      mf.Tracks[s.Track],
+			Start:     s.SS,
+			End:       s.To,
+			Head:      s.Head,
+			Tail:      s.Tail,
+			FadeIn:    s.FadeIn,
+			FadeOut:   s.FadeOut,
+			FadeCurve: s.FadeCurve,
+		})
+		if err != nil {
+			return nil, noop, err
+		}
+
+		dur := r.To - r.SS
+		if dur <= 0 {
+			dur = r.Duration
+		}
+
+		sr := sliceResult{idx: i, artist: info.Tags["ARTIST"], title: info.Tags["TITLE"], duration: dur, recipe: r}
+
+		if p.DryRun {
+			fmt.Printf("  [dry-run] slice %d track=%s ss=%.3f to=%.3f fade_in=%.3f fade_out=%.3f identical=%v\n",
+				i, s.Track, r.SS, r.To, r.FadeIn, r.FadeOut, r.Identical)
+		} else if p.Preview == 0 {
+			tmpPath, err := executeToTemp(i, r, destDir)
+			if err != nil {
+				return nil, noop, err
+			}
+			tmpPaths = append(tmpPaths, tmpPath)
+			sr.path = tmpPath
+		}
+
+		results[i] = sr
+	}
+
+	cleanup := func() {
+		for _, p := range tmpPaths {
+			os.Remove(p) //nolint:errcheck
+		}
+	}
+	return results, cleanup, nil
+}
+
+func executeToTemp(i int, r audio.Recipe, destDir string) (string, error) {
+	tmp, err := os.CreateTemp(destDir, fmt.Sprintf("zfm-mix-%d-*.mp3", i))
+	if err != nil {
+		return "", err
+	}
+	tmp.Close()
+	if err := audio.Execute(r, tmp.Name()); err != nil {
+		return "", err
+	}
+	return tmp.Name(), nil
+}
+
+func finalize(p Params, results []sliceResult, output string) error {
+	if p.Preview > 0 {
+		for _, sr := range results {
+			if sr.recipe.InputPath != "" {
+				previewSlice(sr, p.Preview, p.SilenceThresh)
+			}
+		}
+		return nil
+	}
+
+	if p.DryRun {
+		return nil
+	}
+
+	printTracklist(results)
+
+	if p.Just >= 0 {
+		return nil
+	}
+
+	var paths []string
+	for _, sr := range results {
+		if sr.path != "" {
+			paths = append(paths, sr.path)
+		}
+	}
+	return audio.ConcatFiles(paths, output)
+}
+
+func noop() {}
+
+func printTracklist(results []sliceResult) {
+	var acc float64
+	for _, sr := range results {
+		if sr.path == "" {
+			continue
+		}
+		fmt.Printf("(%s) [%s] %s\n", audio.FmtDuration(acc), audio.FmtDuration(sr.duration), trackLabel(sr))
+		acc += sr.duration
+	}
+}
+
+func trackLabel(sr sliceResult) string {
+	if sr.title != "" {
+		return sr.artist + " - " + sr.title
+	}
+	if sr.artist != "" {
+		return sr.artist
+	}
+	return fmt.Sprintf("slice %d", sr.idx)
+}
+
+func previewSlice(sr sliceResult, previewSecs, silenceThresh float64) {
+	fmt.Printf("\n==== %02d [%s] %s\n", sr.idx, audio.FmtDuration(sr.duration), trackLabel(sr))
+
+	r := sr.recipe
+
+	headR := r
+	headR.To = math.Min(r.SS+previewSecs, r.To)
+	headR.FadeOut = 0
+	headR.Identical = false
+	audio.Play(headR, "head:") //nolint:errcheck
+
+	tailR := r
+	tailR.SS = math.Max(r.SS, r.To-previewSecs)
+	tailR.FadeIn = 0
+	tailR.Identical = false
+
+	preTailTo := tailR.SS
+	preTailSS := math.Max(r.SS, preTailTo-previewSecs)
+	if vol, err := audio.VolumeStatsRange(r.InputPath, preTailSS, preTailTo); err == nil {
+		fmt.Printf("  pre-tail: %.1f / %.1f dBFS\n", vol.Mean, vol.Peak)
+	}
+	if profile, err := audio.VolumeProfile(r.InputPath, tailR.SS, r.To); err == nil {
+		fmt.Print(audio.FormatProfile(profile, r.To, silenceThresh))
+	}
+
+	audio.Play(tailR, "tail:") //nolint:errcheck
+}
