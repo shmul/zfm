@@ -29,13 +29,13 @@ main  = "/music/main.mp3"
 
 [[mix]]
 track     = "intro"
-to        = "0:45"
+end       = "0:45"
 fade_out  = 2.0
 
 [[mix]]
 track      = "main"
-ss         = "1:00"
-to         = "5:30"
+start      = "1:00"
+end        = "5:30"
 fade_in    = 1.5
 fade_out   = 2.0
 fade_curve = "tri"
@@ -47,10 +47,10 @@ fade_curve = "tri"
 			require.Equal(t, "/music/main.mp3", mf.Tracks["main"])
 			require.Len(t, mf.Mix, 2)
 			require.Equal(t, "intro", mf.Mix[0].Track)
-			require.Equal(t, "0:45", mf.Mix[0].To)
+			require.Equal(t, "0:45", mf.Mix[0].End)
 			require.Equal(t, 2.0, mf.Mix[0].FadeOut)
 			require.Equal(t, "main", mf.Mix[1].Track)
-			require.Equal(t, "1:00", mf.Mix[1].SS)
+			require.Equal(t, "1:00", mf.Mix[1].Start)
 			require.Equal(t, 1.5, mf.Mix[1].FadeIn)
 			require.Equal(t, "tri", mf.Mix[1].FadeCurve)
 		})
@@ -126,7 +126,7 @@ mystery = "value"
 a = "/music/a.mp3"
 
 [[mix]]
-ss = "0:10"
+start = "0:10"
 `)
 			_, err := Parse(path)
 			require.Error(t, err)

@@ -63,8 +63,8 @@ func processSlices(p Params, mf MixFile, destDir string) ([]sliceResult, func(),
 
 		r, info, err := audio.Prepare(audio.PrepareParams{
 			Path:      mf.Tracks[s.Track],
-			Start:     s.SS,
-			End:       s.To,
+			Start:     s.Start,
+			End:       s.End,
 			Head:      s.Head,
 			Tail:      s.Tail,
 			FadeIn:    s.FadeIn,

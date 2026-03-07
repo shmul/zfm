@@ -11,8 +11,8 @@ import (
 type (
 	Slice struct {
 		Track     string  `toml:"track"`
-		SS        string  `toml:"ss"`
-		To        string  `toml:"to"`
+		Start     string  `toml:"start"`
+		End       string  `toml:"end"`
 		Head      float64 `toml:"head"`
 		Tail      float64 `toml:"tail"`
 		FadeIn    float64 `toml:"fade_in"`

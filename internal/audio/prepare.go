@@ -34,11 +34,19 @@ type Recipe struct {
 	Identical bool
 }
 
-// ParseTime parses a [hh:]mm:ss string into seconds.
+// ParseTime parses a time string into seconds.
+// Accepts Go duration syntax (e.g. "46m57s", "1h32m5s") or [hh:]mm:ss notation.
 // Returns 0 and no error on empty input.
 func ParseTime(hms string) (float64, error) {
 	if hms == "" {
 		return 0, nil
+	}
+	if strings.ContainsAny(hms, "hms") {
+		d, err := time.ParseDuration(hms)
+		if err != nil {
+			return 0, fmt.Errorf("invalid time format: %q", hms)
+		}
+		return d.Seconds(), nil
 	}
 	parts := strings.Split(hms, ":")
 	var goFmt string
