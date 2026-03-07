@@ -30,7 +30,9 @@ type (
 		playStartTime time.Time
 		playStartPos  float64
 		stopPlay      func()
+		playDone      <-chan struct{}
 		termW         int
+		termH         int
 	}
 
 	tickMsg struct{}
@@ -44,9 +46,12 @@ type (
 )
 
 func runPlot(p Params, mf MixFile) error {
-	termW, _, err := term.GetSize(os.Stdout.Fd())
+	termW, termH, err := term.GetSize(os.Stdout.Fd())
 	if err != nil || termW < 20 {
 		termW = 80
+	}
+	if termH < 10 {
+		termH = 24
 	}
 
 	var entries []plotEntry
@@ -77,7 +82,7 @@ func runPlot(p Params, mf MixFile) error {
 		positions[i] = e.recipe.SS
 	}
 
-	m := plotModel{entries: entries, positions: positions, threshold: p.SilenceThresh, termW: termW}
+	m := plotModel{entries: entries, positions: positions, threshold: p.SilenceThresh, termW: termW, termH: termH}
 	_, err = tea.NewProgram(m).Run()
 	return err
 }
@@ -114,7 +119,7 @@ func (m plotModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyPressMsg:
 		switch msg.String() {
 		case "q", "ctrl+c":
-			m.halt()
+			m.haltAndWait()
 			return m, tea.Quit
 
 		case "space":
@@ -156,6 +161,9 @@ func (m plotModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 	case playDoneMsg:
+		elapsed := time.Since(m.playStartTime).Seconds()
+		r := m.curRecipe()
+		m.positions[m.idx] = math.Min(m.playStartPos+elapsed, r.To)
 		m.playing = false
 		m.stopPlay = nil
 	}
@@ -176,6 +184,15 @@ func (m *plotModel) halt() {
 	}
 	m.playing = false
 	m.stopPlay = nil
+	m.playDone = nil
+}
+
+func (m *plotModel) haltAndWait() {
+	done := m.playDone
+	m.halt()
+	if done != nil {
+		<-done
+	}
 }
 
 func (m *plotModel) curRecipe() audio.Recipe {
@@ -195,6 +212,7 @@ func (m *plotModel) play() tea.Cmd {
 	m.playStartTime = time.Now()
 	m.playStartPos = m.positions[m.idx]
 	m.stopPlay = stop
+	m.playDone = done
 	return tea.Batch(waitForPlay(done), doTick())
 }
 
@@ -242,7 +260,9 @@ func (m plotModel) View() tea.View {
 		if m.loading || e.profile == nil {
 			content += "  computing volume profile…\n"
 		} else {
-			content += audio.PlotProfile(e.profile, m.threshold)
+			// overhead: header(1) + blank(1) + chartLegend(1) + chartFooter(1) + blank(1) + summary(1) + blank(1) + nav(1)
+			chartH := max(4, m.termH-8)
+			content += audio.PlotProfile(e.profile, m.threshold, chartH)
 			content += "\n" + profileSummary(e.profile, r.To, m.threshold)
 		}
 		content += "\n" + navHint(m.idx, len(m.entries), m.playing)

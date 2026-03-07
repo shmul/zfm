@@ -21,18 +21,21 @@ var (
 
 // PlotProfile renders a per-second volume profile as a terminal bar chart.
 // Each bar shows mean volume (green/red depending on threshold) with peak delta on top (yellow).
-func PlotProfile(profile []ProfileWindow, threshold float64) string {
+// height specifies the chart area in terminal rows; 0 defaults to 12.
+func PlotProfile(profile []ProfileWindow, threshold float64, height int) string {
 	if len(profile) == 0 {
 		return ""
 	}
 
-	const chartHeight = 12
+	if height <= 0 {
+		height = 12
+	}
 	w, _, err := term.GetSize(os.Stdout.Fd())
 	if err != nil || w < 20 {
 		w = 80
 	}
 
-	bc := barchart.New(w, chartHeight,
+	bc := barchart.New(w, height,
 		barchart.WithMaxValue(-dbFloor),
 		barchart.WithNoAutoMaxValue(),
 		barchart.WithBarGap(0),

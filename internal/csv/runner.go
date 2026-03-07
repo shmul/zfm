@@ -255,7 +255,7 @@ func previewTrack(tr trackResult, previewSecs, silenceThresh float64) {
 	}
 
 	if profile, err := audio.VolumeProfile(r.InputPath, tailR.SS, r.To, 1.0); err == nil {
-		fmt.Print(audio.PlotProfile(profile, silenceThresh))
+		fmt.Print(audio.PlotProfile(profile, silenceThresh, 0))
 		fmt.Print(audio.FormatProfile(profile, r.To, silenceThresh))
 	}
 

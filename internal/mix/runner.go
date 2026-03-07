@@ -197,7 +197,7 @@ func previewSlice(sr sliceResult, previewSecs, silenceThresh float64) {
 		fmt.Printf("  pre-tail: %.1f / %.1f dBFS\n", vol.Mean, vol.Peak)
 	}
 	if profile, err := audio.VolumeProfile(r.InputPath, tailR.SS, r.To, 1.0); err == nil {
-		fmt.Print(audio.PlotProfile(profile, silenceThresh))
+		fmt.Print(audio.PlotProfile(profile, silenceThresh, 0))
 		fmt.Print(audio.FormatProfile(profile, r.To, silenceThresh))
 	}
 
