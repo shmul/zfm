@@ -31,7 +31,7 @@ type (
 	playlistCmd struct {
 		TargetDir     string  `long:"target-dir" description:"output directory"`
 		Preview       float64 `short:"p" long:"preview" default:"0" description:"play preview (secs) of head and tail"`
-		Just          int     `short:"j" long:"just" default:"-1" description:"process only track N (zero-based)"`
+		Just          []int   `short:"j" long:"just" description:"process only track(s) N (zero-based, repeatable)"`
 		OneByOne      bool    `short:"1" long:"one-by-one" description:"play tracks individually"`
 		DryRun        bool    `short:"n" long:"dry-run" description:"prepare but don't write"`
 		SilenceThresh float64 `long:"silence-thresh" default:"-50.0" description:"silence threshold for profile (dBFS)"`
@@ -76,8 +76,9 @@ type (
 	mixCmd struct {
 		TargetDir     string  `long:"target-dir" description:"output directory"`
 		Preview       float64 `short:"p" long:"preview" default:"0" description:"play preview (secs) of head and tail"`
-		Just          int     `short:"j" long:"just" default:"-1" description:"process only slice N (zero-based)"`
+		Just          []int   `short:"j" long:"just" description:"process only slice(s) N (zero-based, repeatable)"`
 		DryRun        bool    `short:"n" long:"dry-run" description:"prepare but don't write"`
+		Plot          bool    `long:"plot" description:"show interactive volume plot for each slice"`
 		SilenceThresh float64 `long:"silence-thresh" default:"-50.0" description:"silence threshold for profile (dBFS)"`
 		Args          struct {
 			Filename string `positional-arg-name:"filename" required:"true"`

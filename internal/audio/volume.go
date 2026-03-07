@@ -93,10 +93,12 @@ func parseDBFS(re *regexp.Regexp, s string) (float64, error) {
 	return strconv.ParseFloat(strings.TrimSpace(m[1]), 64)
 }
 
-// VolumeProfile returns per-second volume stats for [ss, to] in path.
-// Windows run in parallel; each is 1 second wide.
-func VolumeProfile(path string, ss, to float64) ([]ProfileWindow, error) {
-	const windowSecs = 1.0
+// VolumeProfile returns volume stats for [ss, to] in path.
+// windowSecs controls the width of each window; windows run in parallel.
+func VolumeProfile(path string, ss, to, windowSecs float64) ([]ProfileWindow, error) {
+	if windowSecs <= 0 {
+		windowSecs = 1.0
+	}
 	n := int(math.Ceil((to - ss) / windowSecs))
 	results := make([]ProfileWindow, n)
 	errs := make([]error, n)

@@ -55,7 +55,7 @@ fade_out = 0.5
 			r, w, _ := os.Pipe()
 			os.Stdout = w
 
-			err := Run(Params{MixFile: mixPath, Just: -1, DryRun: true})
+			err := Run(Params{MixFile: mixPath, DryRun: true})
 
 			w.Close()
 			os.Stdout = old
@@ -92,7 +92,7 @@ track   = "b"
 fade_in = 0.5
 `, trackA, trackB))
 
-			err := Run(Params{MixFile: mixPath, Just: 1, DryRun: false})
+			err := Run(Params{MixFile: mixPath, Just: []int{1}, DryRun: false})
 			require.NoError(t, err)
 
 			// just=1 skips concat — no playlist written

@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -23,7 +24,7 @@ type (
 		CSVFile       string
 		TargetDir     string
 		Preview       float64
-		Just          int
+		Just          []int
 		OneByOne      bool
 		DryRun        bool
 		SilenceThresh float64
@@ -63,7 +64,7 @@ func Run(p Params) error {
 	sem := make(chan struct{}, workers)
 
 	for idx, row := range rows {
-		if p.Just >= 0 && idx != p.Just {
+		if len(p.Just) > 0 && !slices.Contains(p.Just, idx) {
 			continue
 		}
 		idx, row := idx, row
@@ -91,7 +92,7 @@ func Run(p Params) error {
 		return err
 	}
 
-	printTracklist(results, p.Just)
+	printTracklist(results)
 
 	fmt.Println("overall time", audio.FmtDuration(overallDur))
 
@@ -109,7 +110,7 @@ func Run(p Params) error {
 		return nil
 	}
 
-	if !p.DryRun && p.Just < 0 && !p.OneByOne {
+	if !p.DryRun && len(p.Just) == 0 && !p.OneByOne {
 		return concatPlaylist(destDir, results)
 	}
 
@@ -183,7 +184,7 @@ func buildTrackResult(idx int, row map[string]string, r audio.Recipe, info audio
 	}
 }
 
-func printTracklist(results []trackResult, just int) {
+func printTracklist(results []trackResult) {
 	var acc float64
 	for _, tr := range results {
 		if tr.destPath == "" {
@@ -253,7 +254,8 @@ func previewTrack(tr trackResult, previewSecs, silenceThresh float64) {
 		fmt.Printf("  pre-tail: %.1f / %.1f dBFS\n", vol.Mean, vol.Peak)
 	}
 
-	if profile, err := audio.VolumeProfile(r.InputPath, tailR.SS, r.To); err == nil {
+	if profile, err := audio.VolumeProfile(r.InputPath, tailR.SS, r.To, 1.0); err == nil {
+		fmt.Print(audio.PlotProfile(profile, silenceThresh))
 		fmt.Print(audio.FormatProfile(profile, r.To, silenceThresh))
 	}
 

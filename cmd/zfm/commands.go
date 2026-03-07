@@ -269,6 +269,7 @@ func (c *mixCmd) Execute(_ []string) error {
 		Preview:       c.Preview,
 		Just:          c.Just,
 		DryRun:        c.DryRun,
+		Plot:          c.Plot,
 		SilenceThresh: c.SilenceThresh,
 	})
 }

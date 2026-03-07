@@ -5,6 +5,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"slices"
 
 	"github.com/shmul/zfm/internal/audio"
 )
@@ -13,9 +14,10 @@ type (
 	Params struct {
 		MixFile       string
 		TargetDir     string
-		Just          int
+		Just          []int
 		DryRun        bool
 		Preview       float64
+		Plot          bool
 		SilenceThresh float64
 	}
 
@@ -33,6 +35,10 @@ func Run(p Params) error {
 	mf, err := Parse(p.MixFile)
 	if err != nil {
 		return err
+	}
+
+	if p.Plot {
+		return runPlot(p, mf)
 	}
 
 	destDir := p.TargetDir
@@ -57,7 +63,7 @@ func processSlices(p Params, mf MixFile, destDir string) ([]sliceResult, func(),
 	var tmpPaths []string
 
 	for i, s := range mf.Mix {
-		if p.Just >= 0 && i != p.Just {
+		if len(p.Just) > 0 && !slices.Contains(p.Just, i) {
 			continue
 		}
 
@@ -133,7 +139,7 @@ func finalize(p Params, results []sliceResult, output string) error {
 
 	printTracklist(results)
 
-	if p.Just >= 0 {
+	if len(p.Just) > 0 {
 		return nil
 	}
 
@@ -190,7 +196,8 @@ func previewSlice(sr sliceResult, previewSecs, silenceThresh float64) {
 	if vol, err := audio.VolumeStatsRange(r.InputPath, preTailSS, preTailTo); err == nil {
 		fmt.Printf("  pre-tail: %.1f / %.1f dBFS\n", vol.Mean, vol.Peak)
 	}
-	if profile, err := audio.VolumeProfile(r.InputPath, tailR.SS, r.To); err == nil {
+	if profile, err := audio.VolumeProfile(r.InputPath, tailR.SS, r.To, 1.0); err == nil {
+		fmt.Print(audio.PlotProfile(profile, silenceThresh))
 		fmt.Print(audio.FormatProfile(profile, r.To, silenceThresh))
 	}
 

@@ -79,7 +79,7 @@ func DetectSilence(path string, p SilenceParams) (SilenceAnalysis, error) {
 		}
 	}
 
-	profile, _ := VolumeProfile(path, tailOffset, info.Duration)
+	profile, _ := VolumeProfile(path, tailOffset, info.Duration, 1.0)
 
 	return SilenceAnalysis{
 		TotalDuration:        info.Duration,
