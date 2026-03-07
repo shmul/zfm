@@ -41,7 +41,6 @@ func ConcatFiles(paths []string, output string) error {
 		}
 	}
 
-	fmt.Println(output)
 	args := []string{"-f", "concat", "-safe", "0", "-i", listFile, "-b:a", "320k", "-y", output}
 	cmd, err := ProcsCmdStr("ffmpeg", args)
 	if err != nil {

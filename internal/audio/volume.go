@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 	"regexp"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -103,6 +104,7 @@ func VolumeProfile(path string, ss, to, windowSecs float64) ([]ProfileWindow, er
 	results := make([]ProfileWindow, n)
 	errs := make([]error, n)
 
+	sem := make(chan struct{}, runtime.GOMAXPROCS(0))
 	var wg sync.WaitGroup
 	for i := range n {
 		start := ss + float64(i)*windowSecs
@@ -110,6 +112,8 @@ func VolumeProfile(path string, ss, to, windowSecs float64) ([]ProfileWindow, er
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
+			sem <- struct{}{}
+			defer func() { <-sem }()
 			v, err := VolumeStatsRange(path, start, end)
 			results[i] = ProfileWindow{SS: start, Volume: v}
 			errs[i] = err

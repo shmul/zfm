@@ -63,7 +63,7 @@ func processSlices(p Params, mf MixFile, destDir string) ([]sliceResult, func(),
 	var tmpPaths []string
 
 	for i, s := range mf.Mix {
-		if len(p.Just) > 0 && !slices.Contains(p.Just, i) {
+		if !shouldProcess(p.Just, i) {
 			continue
 		}
 
@@ -115,11 +115,10 @@ func processSlices(p Params, mf MixFile, destDir string) ([]sliceResult, func(),
 
 // executeToTemp encodes a slice to a temp file for later concatenation.
 //
-// Concatenation uses ffmpeg's concat demuxer with -c copy (stream copy, no re-encode),
-// which requires each input to be a complete, fully-encoded file. Slices that need
-// cropping or fading are therefore pre-processed here into temp files (pass 1), then
-// stitched losslessly in a second pass. Identical slices skip this and reuse the
-// original file directly.
+// Concatenation uses ffmpeg's concat demuxer (pass 2), which requires each input
+// to be a complete, fully-encoded file. Slices that need cropping or fading are
+// therefore pre-processed here into temp files (pass 1). Identical slices skip
+// this and reuse the original file directly.
 func executeToTemp(i int, r audio.Recipe, destDir string) (path string, isTmp bool, err error) {
 	if r.Identical {
 		return r.InputPath, false, nil
@@ -166,6 +165,10 @@ func finalize(p Params, results []sliceResult, output string) error {
 }
 
 func noop() {}
+
+func shouldProcess(just []int, i int) bool {
+	return len(just) == 0 || slices.Contains(just, i)
+}
 
 func printTracklist(results []sliceResult) {
 	var acc float64

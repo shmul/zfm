@@ -65,9 +65,6 @@ func StartPlayAt(path string, ss, to float64) (stop func(), done <-chan struct{}
 		args = append(args, abs)
 
 		cmd := exec.Command("ffplay", args...)
-		cmd.Stdin = nil
-		cmd.Stdout = nil
-		cmd.Stderr = nil
 		if err := cmd.Start(); err != nil {
 			return
 		}

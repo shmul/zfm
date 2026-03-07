@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"math"
 	"os"
-	"slices"
 	"strings"
 	"time"
 
@@ -26,7 +25,6 @@ type (
 		idx           int
 		threshold     float64
 		loading       bool
-		playing       bool
 		playStartTime time.Time
 		playStartPos  float64
 		stopPlay      func()
@@ -57,7 +55,7 @@ func runPlot(p Params, mf MixFile) error {
 	var entries []plotEntry
 	var positions []float64
 	for i, s := range mf.Mix {
-		if len(p.Just) > 0 && !slices.Contains(p.Just, i) {
+		if !shouldProcess(p.Just, i) {
 			continue
 		}
 		r, _, err := audio.Prepare(audio.PrepareParams{
@@ -120,7 +118,7 @@ func (m plotModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 
 		case "space":
-			if m.playing {
+			if m.stopPlay != nil {
 				m.halt()
 				return m, nil
 			}
@@ -150,20 +148,16 @@ func (m plotModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 	case tickMsg:
-		if m.playing {
-			elapsed := time.Since(m.playStartTime).Seconds()
-			r := m.curRecipe()
-			m.positions[m.idx] = math.Min(m.playStartPos+elapsed, r.To)
+		if m.stopPlay != nil {
+			m.updatePosition()
 			return m, doTick()
 		}
 
 	case playDoneMsg:
-		if m.playing {
-			elapsed := time.Since(m.playStartTime).Seconds()
-			r := m.curRecipe()
-			m.positions[m.idx] = math.Min(m.playStartPos+elapsed, r.To)
-			m.playing = false
+		if m.stopPlay != nil {
+			m.updatePosition()
 			m.stopPlay = nil
+			m.playDone = nil
 		}
 	}
 	return m, nil
@@ -181,7 +175,6 @@ func (m *plotModel) halt() {
 	if m.stopPlay != nil {
 		m.stopPlay()
 	}
-	m.playing = false
 	m.stopPlay = nil
 	m.playDone = nil
 }
@@ -207,12 +200,17 @@ func (m *plotModel) play() tea.Cmd {
 	}
 	r := m.curRecipe()
 	stop, done := audio.StartPlayAt(r.InputPath, m.positions[m.idx], r.To)
-	m.playing = true
 	m.playStartTime = time.Now()
 	m.playStartPos = m.positions[m.idx]
 	m.stopPlay = stop
 	m.playDone = done
 	return tea.Batch(waitForPlay(done), doTick())
+}
+
+func (m *plotModel) updatePosition() {
+	elapsed := time.Since(m.playStartTime).Seconds()
+	r := m.curRecipe()
+	m.positions[m.idx] = math.Min(m.playStartPos+elapsed, r.To)
 }
 
 func doTick() tea.Cmd {
@@ -229,7 +227,7 @@ func (m *plotModel) seekTo(pos float64) tea.Cmd {
 	}
 	r := m.curRecipe()
 	m.positions[m.idx] = math.Max(r.SS, math.Min(r.To, pos))
-	if m.playing {
+	if m.stopPlay != nil {
 		m.halt()
 		return m.play()
 	}
@@ -264,7 +262,7 @@ func (m plotModel) View() tea.View {
 			content += audio.PlotProfile(e.profile, m.threshold, chartH)
 			content += "\n" + profileSummary(e.profile, r.To, m.threshold)
 		}
-		content += "\n" + navHint(m.idx, len(m.entries), m.playing)
+		content += "\n" + navHint(m.idx, len(m.entries), m.stopPlay != nil)
 	}
 	v := tea.NewView(content)
 	v.AltScreen = true
