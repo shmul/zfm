@@ -92,12 +92,14 @@ func processSlices(p Params, mf MixFile, destDir string) ([]sliceResult, func(),
 			fmt.Printf("  [dry-run] slice %d track=%s ss=%.3f to=%.3f fade_in=%.3f fade_out=%.3f identical=%v\n",
 				i, s.Track, r.SS, r.To, r.FadeIn, r.FadeOut, r.Identical)
 		} else if p.Preview == 0 {
-			tmpPath, err := executeToTemp(i, r, destDir)
+			path, tmp, err := executeToTemp(i, r, destDir)
 			if err != nil {
 				return nil, noop, err
 			}
-			tmpPaths = append(tmpPaths, tmpPath)
-			sr.path = tmpPath
+			if tmp {
+				tmpPaths = append(tmpPaths, path)
+			}
+			sr.path = path
 		}
 
 		results[i] = sr
@@ -111,16 +113,22 @@ func processSlices(p Params, mf MixFile, destDir string) ([]sliceResult, func(),
 	return results, cleanup, nil
 }
 
-func executeToTemp(i int, r audio.Recipe, destDir string) (string, error) {
+// executeToTemp returns the path to use for concatenation and whether it is a temp file.
+// For identical recipes, the original file is returned directly (no copy).
+func executeToTemp(i int, r audio.Recipe, destDir string) (path string, isTmp bool, err error) {
+	if r.Identical {
+		return r.InputPath, false, nil
+	}
 	tmp, err := os.CreateTemp(destDir, fmt.Sprintf("zfm-mix-%d-*.mp3", i))
 	if err != nil {
-		return "", err
+		return "", false, err
 	}
 	tmp.Close()
 	if err := audio.Execute(r, tmp.Name()); err != nil {
-		return "", err
+		os.Remove(tmp.Name()) //nolint:errcheck
+		return "", false, err
 	}
-	return tmp.Name(), nil
+	return tmp.Name(), true, nil
 }
 
 func finalize(p Params, results []sliceResult, output string) error {
