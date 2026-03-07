@@ -14,10 +14,14 @@ import (
 const dbFloor = -70.0
 
 var (
-	loudBlock  = lipgloss.NewStyle().Foreground(lipgloss.Color("2")).Background(lipgloss.Color("2"))
-	quietBlock = lipgloss.NewStyle().Foreground(lipgloss.Color("1")).Background(lipgloss.Color("1"))
-	peakBlock  = lipgloss.NewStyle().Foreground(lipgloss.Color("3")).Background(lipgloss.Color("3"))
+	loudBlock  = blockStyle("#00C853") // vivid green  — above threshold
+	quietBlock = blockStyle("#CC3333") // dark red     — below threshold
+	peakBlock  = blockStyle("#FFD740") // amber        — peak overshoot
 )
+
+func blockStyle(hex string) lipgloss.Style {
+	return lipgloss.NewStyle().Foreground(lipgloss.Color(hex)).Background(lipgloss.Color(hex))
+}
 
 // PlotProfile renders a per-second volume profile as a terminal bar chart.
 // Each bar shows mean volume (green/red depending on threshold) with peak delta on top (yellow).
