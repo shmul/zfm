@@ -11,29 +11,20 @@ import (
 // Play executes a Recipe and plays the result via ffplay.
 // Volume stats are computed concurrently and printed as soon as they are ready.
 func Play(r Recipe, label ...string) error {
-	playPath := r.InputPath
-
-	if !r.Identical {
-		ext := filepath.Ext(r.InputPath)
-		tmp, err := os.CreateTemp("", "zfm-*"+ext)
-		if err != nil {
-			return err
-		}
-		tmp.Close()
-		defer os.Remove(tmp.Name())
-
-		if err := Execute(r, tmp.Name()); err != nil {
-			return err
-		}
-		playPath = tmp.Name()
+	playPath, tmpPath, err := preparePlayPath(r)
+	if tmpPath != "" {
+		defer os.Remove(tmpPath) //nolint:errcheck
+	}
+	if err != nil {
+		return err
 	}
 
-	var wg sync.WaitGroup
-	wg.Add(1)
 	prefix := ""
 	if len(label) > 0 {
 		prefix = label[0] + " "
 	}
+	var wg sync.WaitGroup
+	wg.Add(1)
 	go func() {
 		defer wg.Done()
 		vol, err := VolumeStats(playPath)
@@ -42,7 +33,7 @@ func Play(r Recipe, label ...string) error {
 		}
 	}()
 
-	err := ffplay(playPath)
+	err = ffplay(playPath)
 	wg.Wait()
 	return err
 }
@@ -50,60 +41,6 @@ func Play(r Recipe, label ...string) error {
 // PlayFile plays a file directly (no cropping) via ffplay.
 func PlayFile(path string) error {
 	return ffplay(path)
-}
-
-// StartPlay starts playback of a Recipe asynchronously and returns immediately.
-// All preparation (Execute) and playback run in a background goroutine.
-// The returned done channel closes when playback ends. Call stop() to cancel.
-func StartPlay(r Recipe) (stop func(), done <-chan struct{}) {
-	ch := make(chan struct{})
-	stopCh := make(chan struct{})
-	var once sync.Once
-
-	go func() {
-		defer close(ch)
-
-		playPath, tmpPath, err := preparePlayPath(r)
-		if tmpPath != "" {
-			defer os.Remove(tmpPath) //nolint:errcheck
-		}
-		if err != nil {
-			return
-		}
-
-		// Bail out early if stop was already requested during Execute.
-		select {
-		case <-stopCh:
-			return
-		default:
-		}
-
-		abs, err := filepath.Abs(playPath)
-		if err != nil {
-			return
-		}
-
-		cmd := exec.Command("ffplay", "-nodisp", "-autoexit", abs)
-		cmd.Stdin = nil
-		cmd.Stdout = nil
-		cmd.Stderr = nil
-		if err := cmd.Start(); err != nil {
-			return
-		}
-
-		waitCh := make(chan error, 1)
-		go func() { waitCh <- cmd.Wait() }()
-
-		select {
-		case <-stopCh:
-			cmd.Process.Kill() //nolint:errcheck
-			<-waitCh
-		case <-waitCh:
-		}
-	}()
-
-	stop = func() { once.Do(func() { close(stopCh) }) }
-	return stop, ch
 }
 
 // StartPlayAt starts playback of a file directly using ffplay's built-in seeking,

@@ -55,6 +55,7 @@ func runPlot(p Params, mf MixFile) error {
 	}
 
 	var entries []plotEntry
+	var positions []float64
 	for i, s := range mf.Mix {
 		if len(p.Just) > 0 && !slices.Contains(p.Just, i) {
 			continue
@@ -75,11 +76,7 @@ func runPlot(p Params, mf MixFile) error {
 		dur := r.To - r.SS
 		label := fmt.Sprintf("slice %d: %s (%s)", i, s.Track, audio.FmtDuration(dur))
 		entries = append(entries, plotEntry{label: label, recipe: r})
-	}
-
-	positions := make([]float64, len(entries))
-	for i, e := range entries {
-		positions[i] = e.recipe.SS
+		positions = append(positions, r.SS)
 	}
 
 	m := plotModel{entries: entries, positions: positions, threshold: p.SilenceThresh, termW: termW, termH: termH}
@@ -161,11 +158,13 @@ func (m plotModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 	case playDoneMsg:
-		elapsed := time.Since(m.playStartTime).Seconds()
-		r := m.curRecipe()
-		m.positions[m.idx] = math.Min(m.playStartPos+elapsed, r.To)
-		m.playing = false
-		m.stopPlay = nil
+		if m.playing {
+			elapsed := time.Since(m.playStartTime).Seconds()
+			r := m.curRecipe()
+			m.positions[m.idx] = math.Min(m.playStartPos+elapsed, r.To)
+			m.playing = false
+			m.stopPlay = nil
+		}
 	}
 	return m, nil
 }
