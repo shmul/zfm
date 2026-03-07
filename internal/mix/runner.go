@@ -113,8 +113,13 @@ func processSlices(p Params, mf MixFile, destDir string) ([]sliceResult, func(),
 	return results, cleanup, nil
 }
 
-// executeToTemp returns the path to use for concatenation and whether it is a temp file.
-// For identical recipes, the original file is returned directly (no copy).
+// executeToTemp encodes a slice to a temp file for later concatenation.
+//
+// Concatenation uses ffmpeg's concat demuxer with -c copy (stream copy, no re-encode),
+// which requires each input to be a complete, fully-encoded file. Slices that need
+// cropping or fading are therefore pre-processed here into temp files (pass 1), then
+// stitched losslessly in a second pass. Identical slices skip this and reuse the
+// original file directly.
 func executeToTemp(i int, r audio.Recipe, destDir string) (path string, isTmp bool, err error) {
 	if r.Identical {
 		return r.InputPath, false, nil
