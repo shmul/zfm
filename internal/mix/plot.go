@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -13,6 +14,8 @@ import (
 )
 
 type (
+	previewPhase int
+
 	plotEntry struct {
 		label   string
 		recipe  audio.Recipe
@@ -20,17 +23,21 @@ type (
 	}
 
 	plotModel struct {
-		entries       []plotEntry
-		positions     []float64
-		idx           int
-		threshold     float64
-		loading       bool
-		playStartTime time.Time
-		playStartPos  float64
-		stopPlay      func()
-		playDone      <-chan struct{}
-		termW         int
-		termH         int
+		entries         []plotEntry
+		positions       []float64
+		idx             int
+		threshold       float64
+		previewSecs     float64
+		previewPhase    previewPhase
+		previewEntryIdx int
+		previewTmpPath  string
+		loading         bool
+		playStartTime   time.Time
+		playStartPos    float64
+		stopPlay        func()
+		playDone        <-chan struct{}
+		termW           int
+		termH           int
 	}
 
 	tickMsg struct{}
@@ -41,6 +48,20 @@ type (
 	}
 
 	playDoneMsg struct{}
+
+	previewReadyMsg struct {
+		phase    previewPhase
+		entryIdx int
+		tmpPath  string
+		duration float64
+		srcSS    float64 // cursor start in source-file coordinates
+	}
+)
+
+const (
+	phaseNone previewPhase = iota
+	phaseHead
+	phaseTail
 )
 
 func runPlot(p Params, mf MixFile) error {
@@ -77,7 +98,7 @@ func runPlot(p Params, mf MixFile) error {
 		positions = append(positions, r.SS)
 	}
 
-	m := plotModel{entries: entries, positions: positions, threshold: p.SilenceThresh, termW: termW, termH: termH}
+	m := plotModel{entries: entries, positions: positions, threshold: p.SilenceThresh, previewSecs: p.Preview, termW: termW, termH: termH}
 	_, err = tea.NewProgram(m).Run()
 	return err
 }
@@ -111,6 +132,26 @@ func (m plotModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.loading = false
 
+	case previewReadyMsg:
+		if msg.tmpPath == "" || m.previewPhase == phaseNone {
+			// encoding failed or was cancelled — discard and clean up
+			if msg.tmpPath != "" {
+				os.Remove(msg.tmpPath) //nolint:errcheck
+			}
+			return m, nil
+		}
+		m.previewTmpPath = msg.tmpPath
+		m.previewPhase = msg.phase
+		m.previewEntryIdx = msg.entryIdx
+		m.idx = msg.entryIdx
+		m.positions[msg.entryIdx] = msg.srcSS
+		stop, done := audio.StartPlayAt(msg.tmpPath, 0, msg.duration)
+		m.playStartTime = time.Now()
+		m.playStartPos = msg.srcSS
+		m.stopPlay = stop
+		m.playDone = done
+		return m, tea.Batch(waitForPlay(done), doTick())
+
 	case tea.KeyPressMsg:
 		switch msg.String() {
 		case "q", "ctrl+c":
@@ -120,6 +161,11 @@ func (m plotModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "space":
 			if m.stopPlay != nil {
 				m.halt()
+				return m, nil
+			}
+			// cancel in-flight encoding
+			if m.previewSecs > 0 && m.previewPhase != phaseNone {
+				m.previewPhase = phaseNone
 				return m, nil
 			}
 			return m, m.play()
@@ -159,6 +205,22 @@ func (m plotModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.stopPlay = nil
 			m.playDone = nil
 		}
+		if m.previewPhase != phaseNone {
+			m.cleanupPreviewTemp()
+			switch m.previewPhase {
+			case phaseHead:
+				m.previewPhase = phaseTail
+				return m, m.encodePreview(m.previewEntryIdx, phaseTail)
+			case phaseTail:
+				next := m.previewEntryIdx + 1
+				if next < len(m.entries) {
+					m.previewEntryIdx = next
+					m.previewPhase = phaseHead
+					return m, m.encodePreview(next, phaseHead)
+				}
+				m.previewPhase = phaseNone
+			}
+		}
 	}
 	return m, nil
 }
@@ -177,6 +239,8 @@ func (m *plotModel) halt() {
 	}
 	m.stopPlay = nil
 	m.playDone = nil
+	m.cleanupPreviewTemp()
+	m.previewPhase = phaseNone
 }
 
 func (m *plotModel) haltAndWait() {
@@ -184,6 +248,13 @@ func (m *plotModel) haltAndWait() {
 	m.halt()
 	if done != nil {
 		<-done
+	}
+}
+
+func (m *plotModel) cleanupPreviewTemp() {
+	if m.previewTmpPath != "" {
+		os.Remove(m.previewTmpPath) //nolint:errcheck
+		m.previewTmpPath = ""
 	}
 }
 
@@ -198,6 +269,11 @@ func (m *plotModel) play() tea.Cmd {
 	if len(m.entries) == 0 {
 		return nil
 	}
+	if m.previewSecs > 0 {
+		m.previewEntryIdx = m.idx
+		m.previewPhase = phaseHead
+		return m.encodePreview(m.idx, phaseHead)
+	}
 	r := m.curRecipe()
 	stop, done := audio.StartPlayAt(r.InputPath, m.positions[m.idx], r.To)
 	m.playStartTime = time.Now()
@@ -205,6 +281,43 @@ func (m *plotModel) play() tea.Cmd {
 	m.stopPlay = stop
 	m.playDone = done
 	return tea.Batch(waitForPlay(done), doTick())
+}
+
+// encodePreview renders a head or tail sub-recipe into a temp file and returns a previewReadyMsg.
+// Runs in a goroutine (bubbletea cmd), so Execute is safe to call synchronously here.
+func (m plotModel) encodePreview(idx int, phase previewPhase) tea.Cmd {
+	r := m.entries[idx].recipe
+	previewSecs := m.previewSecs
+	return func() tea.Msg {
+		sub := r
+		switch phase {
+		case phaseHead:
+			sub.To = math.Min(r.SS+previewSecs, r.To)
+			sub.FadeOut = 0
+			sub.Identical = false
+		case phaseTail:
+			sub.SS = math.Max(r.SS, r.To-previewSecs)
+			sub.FadeIn = 0
+			sub.Identical = false
+		}
+		ext := filepath.Ext(r.InputPath)
+		tmp, err := os.CreateTemp("", "zfm-preview-*"+ext)
+		if err != nil {
+			return previewReadyMsg{phase: phase, entryIdx: idx}
+		}
+		tmp.Close()
+		if err := audio.Execute(sub, tmp.Name()); err != nil {
+			os.Remove(tmp.Name()) //nolint:errcheck
+			return previewReadyMsg{phase: phase, entryIdx: idx}
+		}
+		return previewReadyMsg{
+			phase:    phase,
+			entryIdx: idx,
+			tmpPath:  tmp.Name(),
+			duration: sub.To - sub.SS,
+			srcSS:    sub.SS,
+		}
+	}
 }
 
 func (m *plotModel) updatePosition() {
@@ -249,8 +362,17 @@ func (m plotModel) View() tea.View {
 		e := m.entries[m.idx]
 		r := e.recipe
 		pos := m.positions[m.idx]
-		content = fmt.Sprintf("[%d/%d] %s  %s / %s  [%s – %s]\n\n",
-			m.idx+1, len(m.entries), e.label,
+
+		phaseLabel := ""
+		switch m.previewPhase {
+		case phaseHead:
+			phaseLabel = " [head]"
+		case phaseTail:
+			phaseLabel = " [tail]"
+		}
+
+		content = fmt.Sprintf("[%d/%d] %s%s  %s / %s  [%s – %s]\n\n",
+			m.idx+1, len(m.entries), e.label, phaseLabel,
 			fmtPos(pos-r.SS), audio.FmtDuration(r.To-r.SS),
 			audio.FmtDuration(r.SS), audio.FmtDuration(r.To),
 		)
@@ -262,7 +384,7 @@ func (m plotModel) View() tea.View {
 			content += audio.PlotProfile(e.profile, m.threshold, chartH)
 			content += "\n" + profileSummary(e.profile, r.To, m.threshold)
 		}
-		content += "\n" + navHint(m.idx, len(m.entries), m.stopPlay != nil)
+		content += "\n" + navHint(m.idx, len(m.entries), m.stopPlay != nil, m.previewSecs > 0, m.previewPhase)
 	}
 	v := tea.NewView(content)
 	v.AltScreen = true
@@ -297,10 +419,17 @@ func fmtPos(secs float64) string {
 	return fmt.Sprintf("%d:%02d.%d", m, s, tenths)
 }
 
-func navHint(idx, total int, playing bool) string {
-	spaceAction := "play"
-	if playing {
+func navHint(idx, total int, playing bool, previewMode bool, phase previewPhase) string {
+	var spaceAction string
+	switch {
+	case playing:
 		spaceAction = "stop"
+	case previewMode && phase != phaseNone:
+		spaceAction = "cancel"
+	case previewMode:
+		spaceAction = "preview"
+	default:
+		spaceAction = "play"
 	}
 	parts := []string{
 		"q:quit",
