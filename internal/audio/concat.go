@@ -22,11 +22,11 @@ func FmtDuration(secs float64) string {
 
 // ConcatFiles concatenates audio files into a single MP3 at output.
 func ConcatFiles(paths []string, output string) error {
-	listFile := filepath.Join(filepath.Dir(output), "concat.txt")
-	f, err := os.Create(listFile)
+	f, err := os.CreateTemp("", "zfm-concat-*.txt")
 	if err != nil {
 		return err
 	}
+	listFile := f.Name()
 	defer f.Close()
 	defer os.Remove(listFile) //nolint:errcheck
 	for _, p := range paths {

@@ -106,7 +106,7 @@ func processSlices(p Params, mf MixFile, destDir string) ([]sliceResult, func(),
 			fmt.Printf("  [dry-run] slice %d track=%s ss=%.3f to=%.3f fade_in=%.3f fade_out=%.3f volume=%.1f%s identical=%v\n",
 				i, s.Track, r.SS, r.To, r.FadeIn, r.FadeOut, r.Volume, tvStr, r.Identical)
 		} else if p.Preview == 0 && !p.TracksOnly {
-			path, tmp, err := executeToTemp(i, r, destDir)
+			path, tmp, err := executeToTemp(i, r)
 			if err != nil {
 				return nil, cleanup, err
 			}
@@ -134,12 +134,12 @@ func processSlices(p Params, mf MixFile, destDir string) ([]sliceResult, func(),
 // to be a complete, fully-encoded file. Slices that need cropping or fading are
 // therefore pre-processed here into temp files (pass 1). Identical slices skip
 // this and reuse the original file directly.
-func executeToTemp(i int, r audio.Recipe, destDir string) (path string, isTmp bool, err error) {
+func executeToTemp(i int, r audio.Recipe) (path string, isTmp bool, err error) {
 	if r.Identical {
 		return r.InputPath, false, nil
 	}
 	ext := filepath.Ext(r.InputPath)
-	tmp, err := os.CreateTemp(destDir, fmt.Sprintf("zfm-mix-%d-*%s", i, ext))
+	tmp, err := os.CreateTemp("", fmt.Sprintf("zfm-mix-%d-*%s", i, ext))
 	if err != nil {
 		return "", false, err
 	}
