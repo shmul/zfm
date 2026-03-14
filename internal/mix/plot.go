@@ -81,14 +81,16 @@ func runPlot(p Params, mf MixFile) error {
 			continue
 		}
 		r, _, err := audio.Prepare(audio.PrepareParams{
-			Path:      mf.Tracks[s.Track],
-			Start:     s.Start,
-			End:       s.End,
-			Head:      s.Head,
-			Tail:      s.Tail,
-			FadeIn:    s.FadeIn,
-			FadeOut:   s.FadeOut,
-			FadeCurve: s.FadeCurve,
+			Path:         mf.Tracks[s.Track],
+			Start:        s.Start,
+			End:          s.End,
+			Head:         s.Head,
+			Tail:         s.Tail,
+			FadeIn:       s.FadeIn,
+			FadeOut:      s.FadeOut,
+			FadeCurve:    s.FadeCurve,
+			Volume:       s.Volume,
+			TargetVolume: s.TargetVolume,
 		})
 		if err != nil {
 			continue
@@ -275,21 +277,12 @@ func (m *plotModel) curRecipe() audio.Recipe {
 }
 
 func (m *plotModel) play() tea.Cmd {
-	if len(m.entries) == 0 {
+	if len(m.entries) == 0 || m.previewSecs == 0 {
 		return nil
 	}
-	if m.previewSecs > 0 {
-		m.previewEntryIdx = m.idx
-		m.previewPhase = phaseHead
-		return m.encodePreview(m.idx, phaseHead)
-	}
-	r := m.curRecipe()
-	stop, done := audio.StartPlayAt(r.InputPath, m.positions[m.idx], r.To)
-	m.playStartTime = time.Now()
-	m.playStartPos = m.positions[m.idx]
-	m.stopPlay = stop
-	m.playDone = done
-	return tea.Batch(waitForPlay(done), doTick())
+	m.previewEntryIdx = m.idx
+	m.previewPhase = phaseHead
+	return m.encodePreview(m.idx, phaseHead)
 }
 
 // encodePreview renders a head or tail sub-recipe into a temp file and returns a previewReadyMsg.

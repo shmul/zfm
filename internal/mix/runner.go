@@ -69,6 +69,7 @@ func processSlices(p Params, mf MixFile, destDir string) ([]sliceResult, func(),
 		}
 	}
 
+	var acc float64
 	for i, s := range mf.Mix {
 		if !shouldProcess(p.Just, i) {
 			continue
@@ -113,9 +114,15 @@ func processSlices(p Params, mf MixFile, destDir string) ([]sliceResult, func(),
 				tmpPaths = append(tmpPaths, path)
 			}
 			sr.path = path
+			fmt.Printf("(%s) [%s] %s\n", audio.FmtDuration(acc), audio.FmtDuration(sr.duration), trackLabel(sr))
+			acc += sr.duration
 		}
 
 		results[i] = sr
+	}
+
+	if acc > 0 {
+		fmt.Printf("  total: %s\n", audio.FmtDuration(acc))
 	}
 
 	return results, cleanup, nil
@@ -162,8 +169,6 @@ func finalize(p Params, results []sliceResult, output string) error {
 		return nil
 	}
 
-	printTracklist(results)
-
 	if len(p.Just) > 0 {
 		return nil
 	}
@@ -175,11 +180,11 @@ func finalize(p Params, results []sliceResult, output string) error {
 		}
 	}
 
-	if err := writeTracklist(results, tracksPath(output)); err != nil {
+	if err := audio.ConcatFiles(paths, output); err != nil {
 		return err
 	}
 
-	return audio.ConcatFiles(paths, output)
+	return writeTracklist(results, tracksPath(output))
 }
 
 func tracksPath(output string) string {
@@ -205,17 +210,6 @@ func writeTracklist(results []sliceResult, path string) error {
 
 func shouldProcess(just []int, i int) bool {
 	return len(just) == 0 || slices.Contains(just, i)
-}
-
-func printTracklist(results []sliceResult) {
-	var acc float64
-	for _, sr := range results {
-		if sr.path == "" {
-			continue
-		}
-		fmt.Printf("(%s) [%s] %s\n", audio.FmtDuration(acc), audio.FmtDuration(sr.duration), trackLabel(sr))
-		acc += sr.duration
-	}
 }
 
 func trackLabel(sr sliceResult) string {
