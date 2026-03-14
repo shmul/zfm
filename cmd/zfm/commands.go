@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/rs/zerolog/log"
+	"github.com/samber/lo"
 	"github.com/shmul/zfm/internal/audio"
 	zcsv "github.com/shmul/zfm/internal/csv"
 	"github.com/shmul/zfm/internal/m3u"
@@ -22,6 +23,7 @@ var (
 		"\u201c", "", "\u201d", "", // curly double quotes → drop
 		"\u2013", "-", "\u2014", "-", // en/em dash → hyphen
 	)
+	supportedAudioExts = []string{".mp3", ".flac", ".aifc", ".wav", ".ogg", ".opus"}
 )
 
 func (c *cropCmd) Execute(_ []string) error {
@@ -149,7 +151,7 @@ func (c *generateCmd) Execute(_ []string) error {
 		}
 		name := d.Name()
 		lower := strings.ToLower(name)
-		if !strings.HasSuffix(lower, ".mp3") && !strings.HasSuffix(lower, ".flac") {
+		if !lo.Contains(supportedAudioExts, filepath.Ext(lower)) {
 			return nil
 		}
 		// skip generated output files
@@ -219,7 +221,7 @@ func generateMixTOML(dir string, files []string) error {
 
 	w.printf("\n")
 	for _, key := range keys {
-		w.printf("[[mix]]\ntrack = %q\n\n", key)
+		w.printf("[[mix]]\ntrack = %q\ntail = 1\n\n", key)
 	}
 	return w.err
 }
@@ -270,6 +272,7 @@ func (c *mixCmd) Execute(_ []string) error {
 		Just:          c.Just,
 		DryRun:        c.DryRun,
 		Plot:          c.Plot,
+		TracksOnly:    c.Tracks,
 		SilenceThresh: c.SilenceThresh,
 	})
 }

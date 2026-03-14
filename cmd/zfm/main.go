@@ -79,6 +79,7 @@ type (
 		Just          []int   `short:"j" long:"just" description:"process only slice(s) N (zero-based, repeatable)"`
 		DryRun        bool    `short:"n" long:"dry-run" description:"prepare but don't write"`
 		Plot          bool    `long:"plot" description:"show interactive volume plot for each slice"`
+		Tracks        bool    `short:"T" long:"tracks" description:"generate tracks.txt only (no audio processing)"`
 		SilenceThresh float64 `long:"silence-thresh" default:"-50.0" description:"silence threshold for profile (dBFS)"`
 		Args          struct {
 			Filename string `positional-arg-name:"filename" required:"true"`
