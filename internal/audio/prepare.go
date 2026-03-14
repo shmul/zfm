@@ -11,15 +11,16 @@ import (
 
 // PrepareParams describes the input parameters for Prepare.
 type PrepareParams struct {
-	Path      string
-	Start     string  // [hh:]mm:ss
-	End       string  // [hh:]mm:ss
-	Head      float64 // seconds offset from start
-	Tail      float64 // seconds to trim from end
-	FadeIn    float64 // seconds
-	FadeOut   float64 // seconds
-	FadeCurve string  // afade curve type (e.g. "qsin", "tri"); defaults to "qsin"
-	Volume    float64 // gain in dB; 0 = no change
+	Path         string
+	Start        string   // [hh:]mm:ss
+	End          string   // [hh:]mm:ss
+	Head         float64  // seconds offset from start
+	Tail         float64  // seconds to trim from end
+	FadeIn       float64  // seconds
+	FadeOut      float64  // seconds
+	FadeCurve    string   // afade curve type (e.g. "qsin", "tri"); defaults to "qsin"
+	Volume       float64  // gain in dB; 0 = no change
+	TargetVolume *float64 // normalize mean to this dBFS; nil = not set; mutually exclusive with Volume
 }
 
 // Recipe describes how to produce a cropped audio file from a source.
@@ -86,6 +87,14 @@ func Prepare(p PrepareParams) (Recipe, ProbeInfo, error) {
 	to, err := endOffset(p.End, p.Tail, info.Duration)
 	if err != nil {
 		return Recipe{}, info, err
+	}
+
+	if p.TargetVolume != nil {
+		vol, err := VolumeStatsRange(p.Path, ss, to)
+		if err != nil {
+			return Recipe{}, info, err
+		}
+		p.Volume = *p.TargetVolume - vol.Mean
 	}
 
 	identical := ss == 0 && to == info.Duration && p.FadeIn == 0 && p.FadeOut == 0 && p.Volume == 0

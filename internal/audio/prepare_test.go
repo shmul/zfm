@@ -1,12 +1,30 @@
 package audio
 
 import (
+	"fmt"
+	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 	"github.com/themakers/bdd"
 )
+
+func generateSilentMP3(t *testing.T, secs int) string {
+	t.Helper()
+	dir := t.TempDir()
+	path := filepath.Join(dir, "silent.mp3")
+	cmd := exec.Command("ffmpeg",
+		"-f", "lavfi", "-i", "anullsrc=r=44100:cl=mono",
+		"-t", fmt.Sprintf("%d", secs),
+		"-q:a", "9", "-acodec", "libmp3lame",
+		"-y", path,
+	)
+	out, err := cmd.CombinedOutput()
+	require.NoError(t, err, string(out))
+	return path
+}
 
 func TestParseTime(t *testing.T) {
 	bdd.Scenario(t, "ParseTime converts time strings to seconds", func(t *testing.T, _ string) {
@@ -85,6 +103,29 @@ func TestIdenticalWithVolume(t *testing.T) {
 			r := Recipe{SS: 0, To: 60, FadeIn: 0, FadeOut: 0, Volume: 0, Duration: 60}
 			identical := r.SS == 0 && r.To == r.Duration && r.FadeIn == 0 && r.FadeOut == 0 && r.Volume == 0
 			require.True(t, identical)
+		})
+	})
+}
+
+func TestPrepareTargetVolume(t *testing.T) {
+	bdd.Scenario(t, "Prepare resolves TargetVolume to Recipe.Volume", func(t *testing.T, _ string) {
+		bdd.Test(t, "TargetVolume nil leaves Volume unchanged", func() {
+			path := generateSilentMP3(t, 3)
+			r, _, err := Prepare(PrepareParams{Path: path})
+			require.NoError(t, err)
+			require.Equal(t, 0.0, r.Volume)
+		})
+
+		bdd.Test(t, "TargetVolume set computes gain as target minus measured mean", func() {
+			path := generateSilentMP3(t, 3)
+			// Measure the mean ourselves to compute the expected gain.
+			vol, err := VolumeStatsRange(path, 0, 3)
+			require.NoError(t, err)
+
+			target := -16.0
+			r, _, err := Prepare(PrepareParams{Path: path, TargetVolume: &target})
+			require.NoError(t, err)
+			require.InDelta(t, target-vol.Mean, r.Volume, 0.01)
 		})
 	})
 }
