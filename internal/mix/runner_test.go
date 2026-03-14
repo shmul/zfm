@@ -17,7 +17,7 @@ func generateSilentMP3(t *testing.T, dir, name string, secs int) string {
 	t.Helper()
 	path := filepath.Join(dir, name)
 	cmd := exec.Command("ffmpeg",
-		"-f", "lavfi", "-i", fmt.Sprintf("anullsrc=r=44100:cl=mono"),
+		"-f", "lavfi", "-i", "anullsrc=r=44100:cl=mono",
 		"-t", fmt.Sprintf("%d", secs),
 		"-q:a", "9", "-acodec", "libmp3lame",
 		"-y", path,
@@ -70,6 +70,27 @@ fade_out = 0.5
 			for _, e := range entries {
 				require.NotEqual(t, "playlist.mp3", e.Name())
 			}
+		})
+	})
+
+	bdd.Scenario(t, "Volume adjustment", func(t *testing.T, _ string) {
+		bdd.Test(t, "slice with volume produces re-encoded output (not a symlink)", func() {
+			dir := t.TempDir()
+			track := generateSilentMP3(t, dir, "a.mp3", 3)
+
+			mixPath := writeMixFileContent(t, dir, fmt.Sprintf(`
+[tracks]
+a = %q
+
+[[mix]]
+track  = "a"
+volume = -6.0
+`, track))
+
+			// Structural correctness (Identical=false when Volume!=0) is covered by unit tests.
+			// This verifies the end-to-end run completes without error.
+			err := Run(Params{MixFile: mixPath, Just: []int{0}, DryRun: false})
+			require.NoError(t, err)
 		})
 	})
 

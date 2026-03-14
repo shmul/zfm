@@ -18,6 +18,7 @@ type (
 		FadeIn    float64 `toml:"fade_in"`
 		FadeOut   float64 `toml:"fade_out"`
 		FadeCurve string  `toml:"fade_curve"`
+		Volume    float64 `toml:"volume"`
 	}
 
 	MixFile struct {

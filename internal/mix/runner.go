@@ -18,6 +18,7 @@ type (
 		DryRun        bool
 		Preview       float64
 		Plot          bool
+		TracksOnly    bool
 		SilenceThresh float64
 	}
 
@@ -62,6 +63,12 @@ func processSlices(p Params, mf MixFile, destDir string) ([]sliceResult, func(),
 	results := make([]sliceResult, len(mf.Mix))
 	var tmpPaths []string
 
+	cleanup := func() {
+		for _, p := range tmpPaths {
+			os.Remove(p) //nolint:errcheck
+		}
+	}
+
 	for i, s := range mf.Mix {
 		if !shouldProcess(p.Just, i) {
 			continue
@@ -76,9 +83,10 @@ func processSlices(p Params, mf MixFile, destDir string) ([]sliceResult, func(),
 			FadeIn:    s.FadeIn,
 			FadeOut:   s.FadeOut,
 			FadeCurve: s.FadeCurve,
+			Volume:    s.Volume,
 		})
 		if err != nil {
-			return nil, noop, err
+			return nil, cleanup, err
 		}
 
 		dur := r.To - r.SS
@@ -89,12 +97,12 @@ func processSlices(p Params, mf MixFile, destDir string) ([]sliceResult, func(),
 		sr := sliceResult{idx: i, artist: info.Tags["ARTIST"], title: info.Tags["TITLE"], duration: dur, recipe: r}
 
 		if p.DryRun {
-			fmt.Printf("  [dry-run] slice %d track=%s ss=%.3f to=%.3f fade_in=%.3f fade_out=%.3f identical=%v\n",
-				i, s.Track, r.SS, r.To, r.FadeIn, r.FadeOut, r.Identical)
-		} else if p.Preview == 0 {
+			fmt.Printf("  [dry-run] slice %d track=%s ss=%.3f to=%.3f fade_in=%.3f fade_out=%.3f volume=%.1f identical=%v\n",
+				i, s.Track, r.SS, r.To, r.FadeIn, r.FadeOut, r.Volume, r.Identical)
+		} else if p.Preview == 0 && !p.TracksOnly {
 			path, tmp, err := executeToTemp(i, r, destDir)
 			if err != nil {
-				return nil, noop, err
+				return nil, cleanup, err
 			}
 			if tmp {
 				tmpPaths = append(tmpPaths, path)
@@ -105,11 +113,6 @@ func processSlices(p Params, mf MixFile, destDir string) ([]sliceResult, func(),
 		results[i] = sr
 	}
 
-	cleanup := func() {
-		for _, p := range tmpPaths {
-			os.Remove(p) //nolint:errcheck
-		}
-	}
 	return results, cleanup, nil
 }
 
@@ -123,14 +126,15 @@ func executeToTemp(i int, r audio.Recipe, destDir string) (path string, isTmp bo
 	if r.Identical {
 		return r.InputPath, false, nil
 	}
-	tmp, err := os.CreateTemp(destDir, fmt.Sprintf("zfm-mix-%d-*.mp3", i))
+	ext := filepath.Ext(r.InputPath)
+	tmp, err := os.CreateTemp(destDir, fmt.Sprintf("zfm-mix-%d-*%s", i, ext))
 	if err != nil {
 		return "", false, err
 	}
 	tmp.Close()
 	if err := audio.Execute(r, tmp.Name()); err != nil {
 		os.Remove(tmp.Name()) //nolint:errcheck
-		return "", false, err
+		return "", false, fmt.Errorf("slice %d (%s): %w", i, r.InputPath, err)
 	}
 	return tmp.Name(), true, nil
 }
@@ -143,6 +147,10 @@ func finalize(p Params, results []sliceResult, output string) error {
 			}
 		}
 		return nil
+	}
+
+	if p.TracksOnly {
+		return writeTracklist(results, tracksPath(output))
 	}
 
 	if p.DryRun {
@@ -161,10 +169,34 @@ func finalize(p Params, results []sliceResult, output string) error {
 			paths = append(paths, sr.path)
 		}
 	}
+
+	if err := writeTracklist(results, tracksPath(output)); err != nil {
+		return err
+	}
+
 	return audio.ConcatFiles(paths, output)
 }
 
-func noop() {}
+func tracksPath(output string) string {
+	return output[:len(output)-len(filepath.Ext(output))] + ".txt"
+}
+
+func writeTracklist(results []sliceResult, path string) error {
+	f, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	for _, sr := range results {
+		if sr.recipe.InputPath == "" {
+			continue
+		}
+		fmt.Fprintln(f, trackLabel(sr)) //nolint:errcheck
+	}
+	fmt.Println("tracks:", path)
+	return nil
+}
 
 func shouldProcess(just []int, i int) bool {
 	return len(just) == 0 || slices.Contains(just, i)

@@ -19,6 +19,7 @@ type PrepareParams struct {
 	FadeIn    float64 // seconds
 	FadeOut   float64 // seconds
 	FadeCurve string  // afade curve type (e.g. "qsin", "tri"); defaults to "qsin"
+	Volume    float64 // gain in dB; 0 = no change
 }
 
 // Recipe describes how to produce a cropped audio file from a source.
@@ -29,6 +30,7 @@ type Recipe struct {
 	FadeIn    float64 // seconds
 	FadeOut   float64 // seconds
 	FadeCurve string  // afade curve type (e.g. "qsin", "tri"); defaults to "qsin"
+	Volume    float64 // gain in dB; 0 = no change
 	Duration  float64 // total source duration
 	// Identical is true when no audio operations are applied (symlink candidate).
 	Identical bool
@@ -86,7 +88,7 @@ func Prepare(p PrepareParams) (Recipe, ProbeInfo, error) {
 		return Recipe{}, info, err
 	}
 
-	identical := ss == 0 && to == info.Duration && p.FadeIn == 0 && p.FadeOut == 0
+	identical := ss == 0 && to == info.Duration && p.FadeIn == 0 && p.FadeOut == 0 && p.Volume == 0
 	return Recipe{
 		InputPath: p.Path,
 		SS:        ss,
@@ -94,6 +96,7 @@ func Prepare(p PrepareParams) (Recipe, ProbeInfo, error) {
 		FadeIn:    p.FadeIn,
 		FadeOut:   p.FadeOut,
 		FadeCurve: p.FadeCurve,
+		Volume:    p.Volume,
 		Duration:  info.Duration,
 		Identical: identical,
 	}, info, nil
@@ -140,13 +143,13 @@ func Execute(r Recipe, dest string) error {
 	to := fmt.Sprintf("%.3f", r.To)
 
 	var ffArgs []string
-	if r.FadeIn == 0 && r.FadeOut == 0 {
+	if r.FadeIn == 0 && r.FadeOut == 0 && r.Volume == 0 {
 		ffArgs = []string{"-ss", ss, "-to", to, "-i", r.InputPath, "-c", "copy", "-y", dest}
 	} else {
 		// asetpts=PTS-STARTPTS normalises timestamps to 0 after the seek so that
 		// afade positions are relative to the segment start, not the original file.
 		segDur := r.To - r.SS
-		ffArgs = []string{"-ss", ss, "-to", to, "-i", r.InputPath, "-af", buildFadeFilter(segDur, r.FadeIn, r.FadeOut, r.FadeCurve), "-y", dest}
+		ffArgs = []string{"-ss", ss, "-to", to, "-i", r.InputPath, "-af", buildAudioFilter(segDur, r.FadeIn, r.FadeOut, r.FadeCurve, r.Volume), "-y", dest}
 	}
 	cmd, err := ProcsCmdStr("ffmpeg", ffArgs)
 	if err != nil {
@@ -155,7 +158,7 @@ func Execute(r Recipe, dest string) error {
 	return newCmd(cmd).Run()
 }
 
-func buildFadeFilter(segDur, fadeIn, fadeOut float64, curve string) string {
+func buildAudioFilter(segDur, fadeIn, fadeOut float64, curve string, volume float64) string {
 	parts := []string{"asetpts=PTS-STARTPTS"}
 	if fadeIn > 0 {
 		parts = append(parts, fmt.Sprintf("afade=t=in:st=0:d=%.3f:curve=%s", fadeIn, curve))
@@ -163,6 +166,9 @@ func buildFadeFilter(segDur, fadeIn, fadeOut float64, curve string) string {
 	if fadeOut > 0 {
 		parts = append(parts, fmt.Sprintf("afade=t=out:st=%.3f:d=%.3f:curve=%s",
 			math.Max(0, segDur-fadeOut), fadeOut, curve))
+	}
+	if volume != 0 {
+		parts = append(parts, fmt.Sprintf("volume=%.4fdB", volume))
 	}
 	return strings.Join(parts, ",")
 }

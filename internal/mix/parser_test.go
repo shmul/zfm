@@ -119,6 +119,35 @@ mystery = "value"
 		})
 	})
 
+	bdd.Scenario(t, "Volume field", func(t *testing.T, _ string) {
+		bdd.Test(t, "parses volume when present", func() {
+			path := writeMixFile(t, `
+[tracks]
+a = "/music/a.mp3"
+
+[[mix]]
+track  = "a"
+volume = -3.0
+`)
+			mf, err := Parse(path)
+			require.NoError(t, err)
+			require.Equal(t, -3.0, mf.Mix[0].Volume)
+		})
+
+		bdd.Test(t, "volume defaults to 0.0 when absent", func() {
+			path := writeMixFile(t, `
+[tracks]
+a = "/music/a.mp3"
+
+[[mix]]
+track = "a"
+`)
+			mf, err := Parse(path)
+			require.NoError(t, err)
+			require.Equal(t, 0.0, mf.Mix[0].Volume)
+		})
+	})
+
 	bdd.Scenario(t, "Validation errors", func(t *testing.T, _ string) {
 		bdd.Test(t, "errors on missing track field in slice", func() {
 			path := writeMixFile(t, `
