@@ -119,6 +119,51 @@ mystery = "value"
 		})
 	})
 
+	bdd.Scenario(t, "TargetVolume field", func(t *testing.T, _ string) {
+		bdd.Test(t, "parses target_volume when present", func() {
+			path := writeMixFile(t, `
+[tracks]
+a = "/music/a.mp3"
+
+[[mix]]
+track         = "a"
+target_volume = -16.0
+`)
+			mf, err := Parse(path)
+			require.NoError(t, err)
+			require.NotNil(t, mf.Mix[0].TargetVolume)
+			require.Equal(t, -16.0, *mf.Mix[0].TargetVolume)
+		})
+
+		bdd.Test(t, "target_volume defaults to nil when absent", func() {
+			path := writeMixFile(t, `
+[tracks]
+a = "/music/a.mp3"
+
+[[mix]]
+track = "a"
+`)
+			mf, err := Parse(path)
+			require.NoError(t, err)
+			require.Nil(t, mf.Mix[0].TargetVolume)
+		})
+
+		bdd.Test(t, "errors when both volume and target_volume are set", func() {
+			path := writeMixFile(t, `
+[tracks]
+a = "/music/a.mp3"
+
+[[mix]]
+track         = "a"
+volume        = -3.0
+target_volume = -16.0
+`)
+			_, err := Parse(path)
+			require.Error(t, err)
+			require.Contains(t, err.Error(), "mutually exclusive")
+		})
+	})
+
 	bdd.Scenario(t, "Volume field", func(t *testing.T, _ string) {
 		bdd.Test(t, "parses volume when present", func() {
 			path := writeMixFile(t, `

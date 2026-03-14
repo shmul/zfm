@@ -20,6 +20,7 @@ type (
 		label   string
 		recipe  audio.Recipe
 		profile []audio.ProfileWindow // nil until loaded
+		volAdj  float64               // ephemeral user nudge in dB
 	}
 
 	plotModel struct {
@@ -163,12 +164,20 @@ func (m plotModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.halt()
 				return m, nil
 			}
+			if m.previewSecs == 0 {
+				return m, nil
+			}
 			// cancel in-flight encoding
-			if m.previewSecs > 0 && m.previewPhase != phaseNone {
+			if m.previewPhase != phaseNone {
 				m.previewPhase = phaseNone
 				return m, nil
 			}
 			return m, m.play()
+
+		case "+", "=":
+			m.entries[m.idx].volAdj += 1.0
+		case "-":
+			m.entries[m.idx].volAdj -= 1.0
 
 		case "[":
 			return m, m.seek(-10)
@@ -287,6 +296,7 @@ func (m *plotModel) play() tea.Cmd {
 // Runs in a goroutine (bubbletea cmd), so Execute is safe to call synchronously here.
 func (m plotModel) encodePreview(idx int, phase previewPhase) tea.Cmd {
 	r := m.entries[idx].recipe
+	volAdj := m.entries[idx].volAdj
 	previewSecs := m.previewSecs
 	return func() tea.Msg {
 		sub := r
@@ -298,6 +308,10 @@ func (m plotModel) encodePreview(idx int, phase previewPhase) tea.Cmd {
 		case phaseTail:
 			sub.SS = math.Max(r.SS, r.To-previewSecs)
 			sub.FadeIn = 0
+			sub.Identical = false
+		}
+		sub.Volume = r.Volume + volAdj
+		if volAdj != 0 {
 			sub.Identical = false
 		}
 		ext := filepath.Ext(r.InputPath)
@@ -371,10 +385,15 @@ func (m plotModel) View() tea.View {
 			phaseLabel = " [tail]"
 		}
 
-		content = fmt.Sprintf("[%d/%d] %s%s  %s / %s  [%s – %s]\n\n",
+		volStr := ""
+		if e.volAdj != 0 {
+			volStr = fmt.Sprintf("  vol: %+.1f dB", e.volAdj)
+		}
+		content = fmt.Sprintf("[%d/%d] %s%s  %s / %s  [%s – %s]%s\n\n",
 			m.idx+1, len(m.entries), e.label, phaseLabel,
 			fmtPos(pos-r.SS), audio.FmtDuration(r.To-r.SS),
 			audio.FmtDuration(r.SS), audio.FmtDuration(r.To),
+			volStr,
 		)
 		if m.loading || e.profile == nil {
 			content += "  computing volume profile…\n"
@@ -428,14 +447,12 @@ func navHint(idx, total int, playing bool, previewMode bool, phase previewPhase)
 		spaceAction = "cancel"
 	case previewMode:
 		spaceAction = "preview"
-	default:
-		spaceAction = "play"
 	}
-	parts := []string{
-		"q:quit",
-		"space:" + spaceAction,
-		"a:start  e:end  [:−10s  ]:+10s",
+	parts := []string{"q:quit"}
+	if spaceAction != "" {
+		parts = append(parts, "space:"+spaceAction)
 	}
+	parts = append(parts, "a:start  e:end  [:−10s  ]:+10s  +/-:vol")
 	if idx > 0 {
 		parts = append(parts, "←:prev")
 	}

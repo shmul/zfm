@@ -75,15 +75,16 @@ func processSlices(p Params, mf MixFile, destDir string) ([]sliceResult, func(),
 		}
 
 		r, info, err := audio.Prepare(audio.PrepareParams{
-			Path:      mf.Tracks[s.Track],
-			Start:     s.Start,
-			End:       s.End,
-			Head:      s.Head,
-			Tail:      s.Tail,
-			FadeIn:    s.FadeIn,
-			FadeOut:   s.FadeOut,
-			FadeCurve: s.FadeCurve,
-			Volume:    s.Volume,
+			Path:         mf.Tracks[s.Track],
+			Start:        s.Start,
+			End:          s.End,
+			Head:         s.Head,
+			Tail:         s.Tail,
+			FadeIn:       s.FadeIn,
+			FadeOut:      s.FadeOut,
+			FadeCurve:    s.FadeCurve,
+			Volume:       s.Volume,
+			TargetVolume: s.TargetVolume,
 		})
 		if err != nil {
 			return nil, cleanup, err
@@ -97,8 +98,12 @@ func processSlices(p Params, mf MixFile, destDir string) ([]sliceResult, func(),
 		sr := sliceResult{idx: i, artist: info.Tags["ARTIST"], title: info.Tags["TITLE"], duration: dur, recipe: r}
 
 		if p.DryRun {
-			fmt.Printf("  [dry-run] slice %d track=%s ss=%.3f to=%.3f fade_in=%.3f fade_out=%.3f volume=%.1f identical=%v\n",
-				i, s.Track, r.SS, r.To, r.FadeIn, r.FadeOut, r.Volume, r.Identical)
+			tvStr := ""
+			if s.TargetVolume != nil {
+				tvStr = fmt.Sprintf(" target_volume=%.1f→%.1f", *s.TargetVolume, r.Volume)
+			}
+			fmt.Printf("  [dry-run] slice %d track=%s ss=%.3f to=%.3f fade_in=%.3f fade_out=%.3f volume=%.1f%s identical=%v\n",
+				i, s.Track, r.SS, r.To, r.FadeIn, r.FadeOut, r.Volume, tvStr, r.Identical)
 		} else if p.Preview == 0 && !p.TracksOnly {
 			path, tmp, err := executeToTemp(i, r, destDir)
 			if err != nil {

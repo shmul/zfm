@@ -10,15 +10,16 @@ import (
 
 type (
 	Slice struct {
-		Track     string  `toml:"track"`
-		Start     string  `toml:"start"`
-		End       string  `toml:"end"`
-		Head      float64 `toml:"head"`
-		Tail      float64 `toml:"tail"`
-		FadeIn    float64 `toml:"fade_in"`
-		FadeOut   float64 `toml:"fade_out"`
-		FadeCurve string  `toml:"fade_curve"`
-		Volume    float64 `toml:"volume"`
+		Track        string   `toml:"track"`
+		Start        string   `toml:"start"`
+		End          string   `toml:"end"`
+		Head         float64  `toml:"head"`
+		Tail         float64  `toml:"tail"`
+		FadeIn       float64  `toml:"fade_in"`
+		FadeOut      float64  `toml:"fade_out"`
+		FadeCurve    string   `toml:"fade_curve"`
+		Volume       float64  `toml:"volume"`
+		TargetVolume *float64 `toml:"target_volume"`
 	}
 
 	MixFile struct {
@@ -62,6 +63,9 @@ func Parse(path string) (MixFile, error) {
 		}
 		if _, ok := mf.Tracks[s.Track]; !ok {
 			missing = append(missing, s.Track)
+		}
+		if s.Volume != 0 && s.TargetVolume != nil {
+			return MixFile{}, fmt.Errorf("slice %d: volume and target_volume are mutually exclusive", i)
 		}
 	}
 	if len(missing) > 0 {
