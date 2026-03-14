@@ -153,12 +153,12 @@ func Execute(r Recipe, dest string) error {
 
 	var ffArgs []string
 	if r.FadeIn == 0 && r.FadeOut == 0 && r.Volume == 0 {
-		ffArgs = []string{"-ss", ss, "-to", to, "-i", r.InputPath, "-c", "copy", "-y", dest}
+		ffArgs = []string{"-loglevel", "error", "-ss", ss, "-to", to, "-i", r.InputPath, "-c", "copy", "-y", dest}
 	} else {
 		// asetpts=PTS-STARTPTS normalises timestamps to 0 after the seek so that
 		// afade positions are relative to the segment start, not the original file.
 		segDur := r.To - r.SS
-		ffArgs = []string{"-ss", ss, "-to", to, "-i", r.InputPath, "-af", buildAudioFilter(segDur, r.FadeIn, r.FadeOut, r.FadeCurve, r.Volume), "-y", dest}
+		ffArgs = []string{"-loglevel", "error", "-ss", ss, "-to", to, "-i", r.InputPath, "-af", buildAudioFilter(segDur, r.FadeIn, r.FadeOut, r.FadeCurve, r.Volume), "-y", dest}
 	}
 	cmd, err := ProcsCmdStr("ffmpeg", ffArgs)
 	if err != nil {

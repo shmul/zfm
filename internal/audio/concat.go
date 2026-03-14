@@ -6,8 +6,6 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
-
-	"github.com/ionrock/procs"
 )
 
 // FmtDuration formats a duration in seconds as [h:]mm:ss.
@@ -41,12 +39,10 @@ func ConcatFiles(paths []string, output string) error {
 		}
 	}
 
-	args := []string{"-f", "concat", "-safe", "0", "-i", listFile, "-b:a", "320k", "-y", output}
+	args := []string{"-loglevel", "error", "-f", "concat", "-safe", "0", "-i", listFile, "-b:a", "320k", "-y", output}
 	cmd, err := ProcsCmdStr("ffmpeg", args)
 	if err != nil {
 		return err
 	}
-	p := procs.NewProcess(cmd)
-	p.ErrHandler = func(line string) string { fmt.Fprintln(os.Stderr, line); return line }
-	return p.Run()
+	return newCmd(cmd).Run()
 }
