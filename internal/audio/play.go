@@ -3,7 +3,6 @@ package audio
 import (
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"sync"
 )
@@ -64,17 +63,21 @@ func StartPlayAt(path string, ss, to float64) (stop func(), done <-chan struct{}
 		}
 		args = append(args, abs)
 
-		cmd := exec.Command("ffplay", args...)
-		if err := cmd.Start(); err != nil {
+		cmdStr, err := ProcsCmdStr("ffplay", args)
+		if err != nil {
+			return
+		}
+		p := newCmd(cmdStr)
+		if err := p.Start(); err != nil {
 			return
 		}
 
 		waitCh := make(chan error, 1)
-		go func() { waitCh <- cmd.Wait() }()
+		go func() { waitCh <- p.Wait() }()
 
 		select {
 		case <-stopCh:
-			cmd.Process.Kill() //nolint:errcheck
+			p.Cmds[len(p.Cmds)-1].Process.Kill() //nolint:errcheck
 			<-waitCh
 		case <-waitCh:
 		}
