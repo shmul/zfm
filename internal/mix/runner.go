@@ -61,13 +61,12 @@ func Run(p Params) error {
 
 func processSlices(p Params, mf MixFile, destDir string) ([]sliceResult, func(), error) {
 	results := make([]sliceResult, len(mf.Mix))
-	var tmpPaths []string
 
-	cleanup := func() {
-		for _, p := range tmpPaths {
-			os.Remove(p) //nolint:errcheck
-		}
+	tmpDir, err := os.MkdirTemp("", "zfm-mix-*")
+	if err != nil {
+		return nil, func() {}, err
 	}
+	cleanup := func() { os.RemoveAll(tmpDir) } //nolint:errcheck
 
 	var acc float64
 	for i, s := range mf.Mix {
@@ -106,12 +105,9 @@ func processSlices(p Params, mf MixFile, destDir string) ([]sliceResult, func(),
 			fmt.Printf("  [dry-run] slice %d track=%s ss=%.3f to=%.3f fade_in=%.3f fade_out=%.3f volume=%.1f%s identical=%v\n",
 				i, s.Track, r.SS, r.To, r.FadeIn, r.FadeOut, r.Volume, tvStr, r.Identical)
 		} else if p.Preview == 0 && !p.TracksOnly {
-			path, tmp, err := executeToTemp(i, r)
+			path, err := executeToTemp(i, r, tmpDir)
 			if err != nil {
 				return nil, cleanup, err
-			}
-			if tmp {
-				tmpPaths = append(tmpPaths, path)
 			}
 			sr.path = path
 			fmt.Printf("(%s) [%s] %s\n", audio.FmtDuration(acc), audio.FmtDuration(sr.duration), trackLabel(sr))
@@ -134,21 +130,20 @@ func processSlices(p Params, mf MixFile, destDir string) ([]sliceResult, func(),
 // to be a complete, fully-encoded file. Slices that need cropping or fading are
 // therefore pre-processed here into temp files (pass 1). Identical slices skip
 // this and reuse the original file directly.
-func executeToTemp(i int, r audio.Recipe) (path string, isTmp bool, err error) {
+func executeToTemp(i int, r audio.Recipe, tmpDir string) (string, error) {
 	if r.Identical {
-		return r.InputPath, false, nil
+		return r.InputPath, nil
 	}
 	ext := filepath.Ext(r.InputPath)
-	tmp, err := os.CreateTemp("", fmt.Sprintf("zfm-mix-%d-*%s", i, ext))
+	tmp, err := os.CreateTemp(tmpDir, fmt.Sprintf("zfm-mix-%d-*%s", i, ext))
 	if err != nil {
-		return "", false, err
+		return "", err
 	}
 	tmp.Close()
 	if err := audio.Execute(r, tmp.Name()); err != nil {
-		os.Remove(tmp.Name()) //nolint:errcheck
-		return "", false, fmt.Errorf("slice %d (%s): %w", i, r.InputPath, err)
+		return "", fmt.Errorf("slice %d (%s): %w", i, r.InputPath, err)
 	}
-	return tmp.Name(), true, nil
+	return tmp.Name(), nil
 }
 
 func finalize(p Params, results []sliceResult, output string) error {
