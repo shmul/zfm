@@ -56,8 +56,12 @@ func ConcatRecipes(recipes []Recipe, output string) error {
 }
 
 func buildSliceFilter(r Recipe) string {
-	segDur := r.To - r.SS
-	return fmt.Sprintf("atrim=start=%.3f:end=%.3f,", r.SS, r.To) +
+	to := r.To
+	if to == 0 {
+		to = r.Duration
+	}
+	segDur := to - r.SS
+	return fmt.Sprintf("atrim=start=%.3f:end=%.3f,", r.SS, to) +
 		buildAudioFilter(segDur, r.FadeIn, r.FadeOut, r.FadeCurve, r.Volume)
 }
 
