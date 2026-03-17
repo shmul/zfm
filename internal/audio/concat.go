@@ -62,7 +62,8 @@ func buildSliceFilter(r Recipe) string {
 	}
 	segDur := to - r.SS
 	return fmt.Sprintf("atrim=start=%.3f:end=%.3f,", r.SS, to) +
-		buildAudioFilter(segDur, r.FadeIn, r.FadeOut, r.FadeCurve, r.Volume)
+		buildAudioFilter(segDur, r.FadeIn, r.FadeOut, r.FadeCurve, r.Volume) +
+		",aresample=44100"
 }
 
 // ConcatFiles concatenates audio files into a single MP3 at output.
