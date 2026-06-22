@@ -23,7 +23,7 @@ var (
 		"\u201c", "", "\u201d", "", // curly double quotes → drop
 		"\u2013", "-", "\u2014", "-", // en/em dash → hyphen
 	)
-	supportedAudioExts = []string{".mp3", ".flac", ".aifc", ".wav", ".ogg", ".opus"}
+	supportedAudioExts = []string{".mp3", ".m4a", ".flac", ".aifc", ".wav", ".ogg", ".opus"}
 )
 
 func (c *cropCmd) Execute(_ []string) error {

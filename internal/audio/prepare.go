@@ -148,23 +148,49 @@ func Execute(r Recipe, dest string) error {
 		return err
 	}
 
+	// ffmpeg refuses to write to its own input; use a temp file when dest == source.
+	ffDest := dest
+	var tmpFile string
+	if filepath.Clean(dest) == filepath.Clean(r.InputPath) {
+		ext := filepath.Ext(dest)
+		tmp, e := os.CreateTemp(filepath.Dir(dest), "zfm-*"+ext)
+		if e != nil {
+			return e
+		}
+		tmp.Close()
+		tmpFile = tmp.Name()
+		ffDest = tmpFile
+	}
+
 	ss := fmt.Sprintf("%.3f", r.SS)
 	to := fmt.Sprintf("%.3f", r.To)
 
 	var ffArgs []string
 	if r.FadeIn == 0 && r.FadeOut == 0 && r.Volume == 0 {
-		ffArgs = []string{"-loglevel", "error", "-ss", ss, "-to", to, "-i", r.InputPath, "-c", "copy", "-y", dest}
+		ffArgs = []string{"-loglevel", "error", "-ss", ss, "-to", to, "-i", r.InputPath, "-c", "copy", "-y", ffDest}
 	} else {
 		// asetpts=PTS-STARTPTS normalises timestamps to 0 after the seek so that
 		// afade positions are relative to the segment start, not the original file.
 		segDur := r.To - r.SS
-		ffArgs = []string{"-loglevel", "error", "-ss", ss, "-to", to, "-i", r.InputPath, "-af", buildAudioFilter(segDur, r.FadeIn, r.FadeOut, r.FadeCurve, r.Volume), "-y", dest}
+		ffArgs = []string{"-loglevel", "error", "-ss", ss, "-to", to, "-i", r.InputPath, "-af", buildAudioFilter(segDur, r.FadeIn, r.FadeOut, r.FadeCurve, r.Volume), "-y", ffDest}
 	}
 	cmd, err := ProcsCmdStr("ffmpeg", ffArgs)
 	if err != nil {
+		if tmpFile != "" {
+			os.Remove(tmpFile) //nolint:errcheck
+		}
 		return err
 	}
-	return newCmd(cmd).Run()
+	if err := newCmd(cmd).Run(); err != nil {
+		if tmpFile != "" {
+			os.Remove(tmpFile) //nolint:errcheck
+		}
+		return err
+	}
+	if tmpFile != "" {
+		return os.Rename(tmpFile, dest)
+	}
+	return nil
 }
 
 func buildAudioFilter(segDur, fadeIn, fadeOut float64, curve string, volume float64) string {
