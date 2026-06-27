@@ -65,6 +65,23 @@ func (c *cropCmd) Execute(_ []string) error {
 	return audio.Execute(r, dest)
 }
 
+func (c *spliceCmd) Execute(_ []string) error {
+	verbose()
+	fmt.Println("zfm splice")
+
+	a, _, err := audio.Prepare(audio.PrepareParams{Path: c.Args.TrackA, End: c.Position})
+	if err != nil {
+		return err
+	}
+
+	b, _, err := audio.Prepare(audio.PrepareParams{Path: c.Args.TrackB})
+	if err != nil {
+		return err
+	}
+
+	return audio.ConcatRecipes([]audio.Recipe{a, b}, c.Output)
+}
+
 func (c *playlistCmd) Execute(_ []string) error {
 	verbose()
 	return zcsv.Run(zcsv.Params{

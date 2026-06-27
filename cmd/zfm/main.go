@@ -73,6 +73,15 @@ type (
 		} `positional-args:"true"`
 	}
 
+	spliceCmd struct {
+		Position string `short:"p" long:"position" required:"true" description:"splice position in trackA ([hh:]mm:ss)"`
+		Output   string `short:"o" long:"output" required:"true" description:"output file path"`
+		Args     struct {
+			TrackA string `positional-arg-name:"trackA" required:"true"`
+			TrackB string `positional-arg-name:"trackB" required:"true"`
+		} `positional-args:"true"`
+	}
+
 	mixCmd struct {
 		TargetDir     string  `long:"target-dir" description:"output directory"`
 		Preview       float64 `short:"p" long:"preview" default:"0" description:"play preview (secs) of head and tail"`
@@ -96,6 +105,7 @@ type zfmOpts struct {
 	Generate generateCmd `command:"generate" description:"Generate playlist.csv from directory"`
 	Analyze  analyzeCmd  `command:"analyze" description:"Analyze audio for silence"`
 	Mix      mixCmd      `command:"mix" description:"Compose from .mix file"`
+	Splice   spliceCmd   `command:"splice" description:"Trim trackA at position and append trackB"`
 }
 
 var o zfmOpts
